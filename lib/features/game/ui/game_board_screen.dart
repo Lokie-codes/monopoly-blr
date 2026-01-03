@@ -1,0 +1,1122 @@
+import 'dart:async';
+import 'dart:ui';
+import 'package:flutter/material.dart';
+import 'package:flutter_riverpod/flutter_riverpod.dart';
+import '../logic/game_provider.dart';
+import 'package:monopoly_blr/features/game/domain/models/game_state.dart';
+import 'package:monopoly_blr/features/game/domain/models/board_data.dart';
+import '../../../core/theme/app_theme.dart';
+import '../../../core/widgets/glass_card.dart';
+import '../../../core/widgets/gradient_button.dart';
+import '../../../core/widgets/dice_widget.dart';
+import 'widgets/board_widget.dart';
+import 'widgets/chat_widget.dart';
+import 'widgets/animated_balance_text.dart';
+
+class GameBoardScreen extends ConsumerStatefulWidget {
+  const GameBoardScreen({super.key});
+
+  @override
+  ConsumerState<GameBoardScreen> createState() => _GameBoardScreenState();
+}
+
+class _GameBoardScreenState extends ConsumerState<GameBoardScreen> 
+    with TickerProviderStateMixin {
+  bool _showChat = false;
+  bool _showDiceAnimation = false;
+  int _diceResult = 1;
+  late AnimationController _pulseController;
+  late Animation<double> _pulseAnimation;
+
+  @override
+  void initState() {
+    super.initState();
+    _pulseController = AnimationController(
+      duration: const Duration(milliseconds: 1500),
+      vsync: this,
+    )..repeat(reverse: true);
+    
+    _pulseAnimation = Tween<double>(begin: 1.0, end: 1.1).animate(
+      CurvedAnimation(parent: _pulseController, curve: Curves.easeInOut),
+    );
+  }
+
+  @override
+  void dispose() {
+    _pulseController.dispose();
+    super.dispose();
+  }
+
+  void _showDiceRoll(int result) {
+    setState(() {
+      _diceResult = result;
+      _showDiceAnimation = true;
+    });
+  }
+
+  void _hideDiceRoll() {
+    setState(() {
+      _showDiceAnimation = false;
+    });
+    // Apply the dice result now that animation is done
+    ref.read(networkProvider.notifier).applyDiceResult();
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    final gameState = ref.watch(gameStateProvider);
+    final networkState = ref.watch(networkProvider);
+    final chatState = ref.watch(chatProvider);
+
+    // Listen for pending dice rolls (animation trigger)
+    ref.listen(gameStateProvider.select((s) => s.pendingDiceRoll), (previous, next) {
+      if (next.isNotEmpty && (previous == null || previous.isEmpty || previous != next)) {
+        _showDiceRoll(next.first);
+      }
+    });
+
+    // Listen for Game Over
+    ref.listen(gameStateProvider.select((s) => s.phase), (previous, next) {
+      if (next == GamePhase.ended) {
+        _showGameOverDialog(context, ref);
+      }
+    });
+
+    return Scaffold(
+      body: Container(
+        decoration: const BoxDecoration(
+          gradient: AppGradients.darkGradient,
+        ),
+        child: SafeArea(
+          child: Stack(
+            children: [
+              LayoutBuilder(
+                builder: (context, constraints) {
+                  final isMobile = constraints.maxWidth < 900;
+                  
+                  if (isMobile) {
+                    return _buildMobileLayout(gameState, networkState, chatState);
+                  } else {
+                    return _buildDesktopLayout(gameState, networkState, chatState);
+                  }
+                },
+              ),
+              
+              // Dice Animation Overlay
+              if (_showDiceAnimation)
+                DiceRollOverlay(
+                  result: _diceResult,
+                  onComplete: _hideDiceRoll,
+                ),
+            ],
+          ),
+        ),
+      ),
+    );
+  }
+
+  Widget _buildDesktopLayout(GameState gameState, NetworkState networkState, ChatState chatState) {
+    return Row(
+      children: [
+        // Left Sidebar - Players & Actions
+        Container(
+          width: 280,
+          margin: const EdgeInsets.all(12),
+          child: Column(
+            children: [
+              _buildNotificationBanner(gameState),
+              const SizedBox(height: 12),
+              Expanded(child: _buildPlayersList(gameState, networkState)),
+              const SizedBox(height: 12),
+              _buildDiceDisplay(gameState),
+              const SizedBox(height: 12),
+              if (networkState.myPlayerId == gameState.currentPlayerId)
+                TurnActionPanel(pulseAnimation: _pulseAnimation)
+              else
+                _buildWaitingCard(gameState),
+            ],
+          ),
+        ),
+        
+        // Center - Game Board
+        Expanded(
+          flex: 2,
+          child: Padding(
+            padding: const EdgeInsets.all(12),
+            child: MonopolyBoardWidget(
+              players: gameState.players, 
+              propertyOwners: gameState.propertyOwners,
+            ),
+          ),
+        ),
+        
+        // Right Sidebar - Chat
+        Container(
+          width: 300,
+          margin: const EdgeInsets.all(12),
+          child: ChatWidget(
+            messages: chatState.messages,
+            currentPlayerId: networkState.myPlayerId ?? '',
+          ),
+        ),
+      ],
+    );
+  }
+
+  Widget _buildMobileLayout(GameState gameState, NetworkState networkState, ChatState chatState) {
+    return Stack(
+      children: [
+        Column(
+          children: [
+            // Players Bar - Show all players
+            _buildMobilePlayersBar(gameState, networkState),
+            
+            // Notification
+            if (gameState.notificationMessage != null && gameState.notificationMessage!.isNotEmpty)
+              _buildMobileNotification(gameState.notificationMessage!),
+            
+            // Game Board
+            Expanded(
+              child: Padding(
+                padding: const EdgeInsets.all(6),
+                child: MonopolyBoardWidget(
+                  players: gameState.players, 
+                  propertyOwners: gameState.propertyOwners,
+                ),
+              ),
+            ),
+            
+            // Bottom Actions
+            if (networkState.myPlayerId == gameState.currentPlayerId)
+              Container(
+                margin: const EdgeInsets.all(8),
+                child: TurnActionPanel(pulseAnimation: _pulseAnimation, compact: true),
+              ),
+          ],
+        ),
+        
+        // Chat Button - Floating
+        Positioned(
+          right: 12,
+          bottom: networkState.myPlayerId == gameState.currentPlayerId ? 100 : 12,
+          child: GestureDetector(
+            onTap: () => setState(() => _showChat = !_showChat),
+            child: Container(
+              padding: const EdgeInsets.all(12),
+              decoration: BoxDecoration(
+                gradient: AppGradients.primaryGradient,
+                borderRadius: BorderRadius.circular(16),
+                boxShadow: AppShadows.glowShadow(AppColors.primaryGradientStart),
+              ),
+              child: const Icon(Icons.chat_bubble, color: Colors.white, size: 22),
+            ),
+          ),
+        ),
+        
+        // Chat Overlay
+        if (_showChat)
+          Positioned.fill(
+            child: GestureDetector(
+              onTap: () => setState(() => _showChat = false),
+              child: Container(
+                color: Colors.black.withOpacity(0.5),
+                child: Align(
+                  alignment: Alignment.bottomCenter,
+                  child: Container(
+                    height: MediaQuery.of(context).size.height * 0.6,
+                    margin: const EdgeInsets.all(12),
+                    child: ChatWidget(
+                      messages: chatState.messages,
+                      currentPlayerId: networkState.myPlayerId ?? '',
+                    ),
+                  ),
+                ),
+              ),
+            ),
+          ),
+      ],
+    );
+  }
+
+  Widget _buildMobilePlayersBar(GameState gameState, NetworkState networkState) {
+    return Container(
+      padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 6),
+      decoration: BoxDecoration(
+        color: AppColors.darkSurface,
+        border: Border(
+          bottom: BorderSide(color: AppColors.glassBorder),
+        ),
+      ),
+      child: SingleChildScrollView(
+        scrollDirection: Axis.horizontal,
+        child: Row(
+          children: gameState.players.map((player) {
+            final isCurrentTurn = player.id == gameState.currentPlayerId;
+            final isMe = player.id == networkState.myPlayerId;
+            final color = Color(int.parse(player.colorHex.replaceFirst('#', '0xff')));
+            
+            return Container(
+              margin: const EdgeInsets.only(right: 8),
+              padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 6),
+              decoration: BoxDecoration(
+                gradient: isCurrentTurn 
+                    ? LinearGradient(
+                        colors: [
+                          AppColors.accentGreen.withOpacity(0.3),
+                          AppColors.accentGreen.withOpacity(0.1),
+                        ],
+                      )
+                    : null,
+                color: isCurrentTurn ? null : AppColors.darkSurfaceLight,
+                borderRadius: BorderRadius.circular(10),
+                border: Border.all(
+                  color: isCurrentTurn 
+                      ? AppColors.accentGreen 
+                      : isMe 
+                          ? AppColors.primaryGradientStart.withOpacity(0.5) 
+                          : AppColors.glassBorder,
+                  width: isCurrentTurn ? 2 : 1,
+                ),
+              ),
+              child: Row(
+                mainAxisSize: MainAxisSize.min,
+                children: [
+                  // Player Avatar
+                  Container(
+                    width: 24,
+                    height: 24,
+                    decoration: BoxDecoration(
+                      color: color,
+                      borderRadius: BorderRadius.circular(6),
+                    ),
+                    child: Center(
+                      child: Text(
+                        player.name.isNotEmpty ? player.name[0].toUpperCase() : '?',
+                        style: const TextStyle(
+                          fontSize: 12,
+                          fontWeight: FontWeight.w700,
+                          color: Colors.white,
+                        ),
+                      ),
+                    ),
+                  ),
+                  const SizedBox(width: 6),
+                  Column(
+                    crossAxisAlignment: CrossAxisAlignment.start,
+                    mainAxisSize: MainAxisSize.min,
+                    children: [
+                      Row(
+                        children: [
+                          Text(
+                            player.name.length > 8 ? '${player.name.substring(0, 8)}...' : player.name,
+                            style: TextStyle(
+                              fontWeight: FontWeight.w600,
+                              color: isCurrentTurn ? AppColors.accentGreen : AppColors.textPrimary,
+                              fontSize: 11,
+                            ),
+                          ),
+                          if (isMe) ...[
+                            const SizedBox(width: 3),
+                            Container(
+                              padding: const EdgeInsets.symmetric(horizontal: 3, vertical: 1),
+                              decoration: BoxDecoration(
+                                color: AppColors.primaryGradientStart.withOpacity(0.3),
+                                borderRadius: BorderRadius.circular(3),
+                              ),
+                              child: const Text(
+                                'ME',
+                                style: TextStyle(
+                                  fontSize: 7,
+                                  fontWeight: FontWeight.w700,
+                                  color: AppColors.primaryGradientStart,
+                                ),
+                              ),
+                            ),
+                          ],
+                          if (player.isJailed) ...[
+                            const SizedBox(width: 3),
+                            Icon(Icons.lock, size: 10, color: AppColors.jailOrange),
+                          ],
+                        ],
+                      ),
+                      ShaderMask(
+                        shaderCallback: (bounds) => AppGradients.goldGradient.createShader(bounds),
+                        child: AnimatedBalanceText(
+                          balance: player.balance,
+                          style: const TextStyle(
+                            fontSize: 10,
+                            fontWeight: FontWeight.w700,
+                            color: Colors.white,
+                          ),
+                        ),
+                      ),
+                    ],
+                  ),
+                  if (isCurrentTurn) ...[
+                    const SizedBox(width: 4),
+                    Icon(Icons.play_arrow, color: AppColors.accentGreen, size: 14),
+                  ],
+                ],
+              ),
+            );
+          }).toList(),
+        ),
+      ),
+    );
+  }
+
+  Widget _buildIconButton(IconData icon, Color color, VoidCallback onTap, {String? badge}) {
+    return GestureDetector(
+      onTap: onTap,
+      child: Container(
+        padding: const EdgeInsets.all(8),
+        decoration: BoxDecoration(
+          color: color.withOpacity(0.2),
+          borderRadius: BorderRadius.circular(10),
+        ),
+        child: Row(
+          mainAxisSize: MainAxisSize.min,
+          children: [
+            Icon(icon, color: color, size: 18),
+            if (badge != null) ...[
+              const SizedBox(width: 4),
+              Text(
+                badge,
+                style: TextStyle(
+                  color: color,
+                  fontWeight: FontWeight.w600,
+                  fontSize: 12,
+                ),
+              ),
+            ],
+          ],
+        ),
+      ),
+    );
+  }
+
+  Widget _buildMiniPlayerAvatar(GameState gameState) {
+    final currentPlayer = gameState.players.firstWhere(
+      (p) => p.id == gameState.currentPlayerId,
+      orElse: () => gameState.players.first,
+    );
+    final color = Color(int.parse(currentPlayer.colorHex.replaceFirst('#', '0xff')));
+    
+    return Container(
+      width: 36,
+      height: 36,
+      decoration: BoxDecoration(
+        color: color,
+        borderRadius: BorderRadius.circular(10),
+        boxShadow: AppShadows.glowShadow(color),
+      ),
+      child: Center(
+        child: Text(
+          currentPlayer.name.isNotEmpty ? currentPlayer.name[0].toUpperCase() : '?',
+          style: const TextStyle(
+            fontSize: 16,
+            fontWeight: FontWeight.w700,
+            color: Colors.white,
+          ),
+        ),
+      ),
+    );
+  }
+
+  String _getCurrentPlayerName(GameState gameState) {
+    final currentPlayer = gameState.players.firstWhere(
+      (p) => p.id == gameState.currentPlayerId,
+      orElse: () => gameState.players.first,
+    );
+    return "${currentPlayer.name}'s Turn";
+  }
+
+  Widget _buildMobileNotification(String message) {
+    return Container(
+      width: double.infinity,
+      padding: const EdgeInsets.symmetric(vertical: 8, horizontal: 12),
+      decoration: const BoxDecoration(
+        gradient: AppGradients.primaryGradient,
+      ),
+      child: Text(
+        message,
+        textAlign: TextAlign.center,
+        style: const TextStyle(
+          fontWeight: FontWeight.w600,
+          color: Colors.white,
+          fontSize: 12,
+        ),
+        maxLines: 2,
+        overflow: TextOverflow.ellipsis,
+      ),
+    );
+  }
+
+  Widget _buildNotificationBanner(GameState gameState) {
+    if (gameState.notificationMessage == null || gameState.notificationMessage!.isEmpty) {
+      return const SizedBox.shrink();
+    }
+    
+    return Container(
+      width: double.infinity,
+      padding: const EdgeInsets.all(12),
+      decoration: BoxDecoration(
+        gradient: AppGradients.primaryGradient,
+        borderRadius: BorderRadius.circular(12),
+        boxShadow: AppShadows.glowShadow(AppColors.primaryGradientStart),
+      ),
+      child: Row(
+        children: [
+          const Icon(Icons.notifications_active, color: Colors.white, size: 18),
+          const SizedBox(width: 10),
+          Expanded(
+            child: Text(
+              gameState.notificationMessage!,
+              style: const TextStyle(
+                fontWeight: FontWeight.w600,
+                color: Colors.white,
+                fontSize: 12,
+              ),
+              maxLines: 2,
+              overflow: TextOverflow.ellipsis,
+            ),
+          ),
+        ],
+      ),
+    );
+  }
+
+  Widget _buildPlayersList(GameState gameState, NetworkState networkState) {
+    return GlassCard(
+      padding: const EdgeInsets.all(12),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          Row(
+            mainAxisAlignment: MainAxisAlignment.spaceBetween,
+            children: [
+              const Text(
+                'Players',
+                style: TextStyle(
+                  fontSize: 14,
+                  fontWeight: FontWeight.w600,
+                  color: AppColors.textPrimary,
+                ),
+              ),
+              Container(
+                padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 3),
+                decoration: BoxDecoration(
+                  color: AppColors.accentGreen.withOpacity(0.2),
+                  borderRadius: BorderRadius.circular(8),
+                ),
+                child: Text(
+                  '${gameState.players.length} online',
+                  style: const TextStyle(
+                    fontSize: 10,
+                    fontWeight: FontWeight.w600,
+                    color: AppColors.accentGreen,
+                  ),
+                ),
+              ),
+            ],
+          ),
+          const SizedBox(height: 12),
+          Expanded(
+            child: ListView.builder(
+              itemCount: gameState.players.length,
+              itemBuilder: (ctx, i) {
+                final player = gameState.players[i];
+                final isTurn = player.id == gameState.currentPlayerId;
+                final isMe = player.id == networkState.myPlayerId;
+                final color = Color(int.parse(player.colorHex.replaceFirst('#', '0xff')));
+                
+                return AnimatedContainer(
+                  duration: const Duration(milliseconds: 300),
+                  margin: const EdgeInsets.only(bottom: 8),
+                  padding: const EdgeInsets.all(10),
+                  decoration: BoxDecoration(
+                    gradient: isTurn 
+                        ? LinearGradient(
+                            colors: [
+                              AppColors.accentGreen.withOpacity(0.2),
+                              AppColors.accentGreen.withOpacity(0.05),
+                            ],
+                          )
+                        : null,
+                    color: isTurn ? null : AppColors.darkSurfaceLight,
+                    borderRadius: BorderRadius.circular(12),
+                    border: Border.all(
+                      color: isTurn 
+                          ? AppColors.accentGreen.withOpacity(0.5) 
+                          : AppColors.glassBorder,
+                      width: isTurn ? 2 : 1,
+                    ),
+                  ),
+                  child: Row(
+                    children: [
+                      Container(
+                        width: 32,
+                        height: 32,
+                        decoration: BoxDecoration(
+                          color: color,
+                          borderRadius: BorderRadius.circular(8),
+                          boxShadow: isTurn ? AppShadows.glowShadow(color) : null,
+                        ),
+                        child: Center(
+                          child: Text(
+                            player.name.isNotEmpty ? player.name[0].toUpperCase() : '?',
+                            style: const TextStyle(
+                              fontSize: 14,
+                              fontWeight: FontWeight.w700,
+                              color: Colors.white,
+                            ),
+                          ),
+                        ),
+                      ),
+                      const SizedBox(width: 10),
+                      Expanded(
+                        child: Column(
+                          crossAxisAlignment: CrossAxisAlignment.start,
+                          children: [
+                            Row(
+                              children: [
+                                Flexible(
+                                  child: Text(
+                                    player.name,
+                                    style: const TextStyle(
+                                      fontWeight: FontWeight.w600,
+                                      color: AppColors.textPrimary,
+                                      fontSize: 12,
+                                    ),
+                                    overflow: TextOverflow.ellipsis,
+                                  ),
+                                ),
+                                if (isMe) ...[
+                                  const SizedBox(width: 4),
+                                  Container(
+                                    padding: const EdgeInsets.symmetric(horizontal: 4, vertical: 1),
+                                    decoration: BoxDecoration(
+                                      color: AppColors.primaryGradientStart.withOpacity(0.2),
+                                      borderRadius: BorderRadius.circular(4),
+                                    ),
+                                    child: const Text(
+                                      'YOU',
+                                      style: TextStyle(
+                                        fontSize: 8,
+                                        fontWeight: FontWeight.w700,
+                                        color: AppColors.primaryGradientStart,
+                                      ),
+                                    ),
+                                  ),
+                                ],
+                              ],
+                            ),
+                            const SizedBox(height: 2),
+                            Row(
+                              children: [
+                                ShaderMask(
+                                  shaderCallback: (bounds) => AppGradients.goldGradient.createShader(bounds),
+                                  child: AnimatedBalanceText(
+                                    balance: player.balance,
+                                    style: const TextStyle(
+                                      fontSize: 11,
+                                      fontWeight: FontWeight.w700,
+                                      color: Colors.white,
+                                    ),
+                                  ),
+                                ),
+                                if (player.isJailed) ...[
+                                  const SizedBox(width: 6),
+                                  Icon(Icons.lock, size: 10, color: AppColors.jailOrange),
+                                ],
+                              ],
+                            ),
+                          ],
+                        ),
+                      ),
+                      if (isTurn)
+                        Container(
+                          padding: const EdgeInsets.all(4),
+                          decoration: BoxDecoration(
+                            color: AppColors.accentGreen,
+                            borderRadius: BorderRadius.circular(6),
+                          ),
+                          child: const Icon(Icons.play_arrow, color: Colors.white, size: 14),
+                        ),
+                    ],
+                  ),
+                );
+              },
+            ),
+          ),
+        ],
+      ),
+    );
+  }
+
+  Widget _buildDiceDisplay(GameState gameState) {
+    if (gameState.lastDiceRoll.isEmpty) return const SizedBox.shrink();
+    
+    return GlassCard(
+      padding: const EdgeInsets.all(12),
+      child: Row(
+        mainAxisAlignment: MainAxisAlignment.center,
+        children: [
+          DiceResultWidget(result: gameState.lastDiceRoll.first, size: 36),
+          const SizedBox(width: 12),
+          Text(
+            'Rolled ${gameState.lastDiceRoll.first}',
+            style: const TextStyle(
+              fontSize: 14,
+              fontWeight: FontWeight.w700,
+              color: AppColors.textPrimary,
+            ),
+          ),
+        ],
+      ),
+    );
+  }
+
+  Widget _buildWaitingCard(GameState gameState) {
+    final currentPlayer = gameState.players.firstWhere(
+      (p) => p.id == gameState.currentPlayerId,
+      orElse: () => gameState.players.first,
+    );
+    
+    return GlassCard(
+      padding: const EdgeInsets.all(16),
+      child: Column(
+        children: [
+          const SizedBox(
+            width: 20,
+            height: 20,
+            child: CircularProgressIndicator(
+              strokeWidth: 2,
+              valueColor: AlwaysStoppedAnimation(AppColors.primaryGradientStart),
+            ),
+          ),
+          const SizedBox(height: 10),
+          Text(
+            "Waiting for ${currentPlayer.name}...",
+            style: const TextStyle(
+              fontSize: 12,
+              fontWeight: FontWeight.w500,
+              color: AppColors.textSecondary,
+            ),
+            textAlign: TextAlign.center,
+          ),
+        ],
+      ),
+    );
+  }
+
+  void _showPlayersBottomSheet(GameState gameState, NetworkState networkState) {
+    showModalBottomSheet(
+      context: context,
+      backgroundColor: Colors.transparent,
+      builder: (context) => Container(
+        decoration: BoxDecoration(
+          color: AppColors.darkSurface,
+          borderRadius: const BorderRadius.vertical(top: Radius.circular(20)),
+        ),
+        padding: const EdgeInsets.all(20),
+        child: Column(
+          mainAxisSize: MainAxisSize.min,
+          children: [
+            Container(
+              width: 40,
+              height: 4,
+              decoration: BoxDecoration(
+                color: AppColors.glassBorder,
+                borderRadius: BorderRadius.circular(2),
+              ),
+            ),
+            const SizedBox(height: 16),
+            const Text(
+              'Players',
+              style: TextStyle(
+                fontSize: 18,
+                fontWeight: FontWeight.w700,
+                color: AppColors.textPrimary,
+              ),
+            ),
+            const SizedBox(height: 16),
+            ...gameState.players.map((player) {
+              final isMe = player.id == networkState.myPlayerId;
+              final isTurn = player.id == gameState.currentPlayerId;
+              final color = Color(int.parse(player.colorHex.replaceFirst('#', '0xff')));
+              
+              return Container(
+                margin: const EdgeInsets.only(bottom: 10),
+                padding: const EdgeInsets.all(12),
+                decoration: BoxDecoration(
+                  color: AppColors.darkSurfaceLight,
+                  borderRadius: BorderRadius.circular(12),
+                  border: isTurn 
+                      ? Border.all(color: AppColors.accentGreen, width: 2)
+                      : null,
+                ),
+                child: Row(
+                  children: [
+                    Container(
+                      width: 40,
+                      height: 40,
+                      decoration: BoxDecoration(
+                        color: color,
+                        borderRadius: BorderRadius.circular(12),
+                      ),
+                      child: Center(
+                        child: Text(
+                          player.name[0].toUpperCase(),
+                          style: const TextStyle(
+                            fontSize: 18,
+                            fontWeight: FontWeight.w700,
+                            color: Colors.white,
+                          ),
+                        ),
+                      ),
+                    ),
+                    const SizedBox(width: 12),
+                    Expanded(
+                      child: Column(
+                        crossAxisAlignment: CrossAxisAlignment.start,
+                        children: [
+                          Row(
+                            children: [
+                              Flexible(
+                                child: Text(
+                                  player.name,
+                                  style: const TextStyle(
+                                    fontWeight: FontWeight.w600,
+                                    fontSize: 14,
+                                    color: AppColors.textPrimary,
+                                  ),
+                                  overflow: TextOverflow.ellipsis,
+                                ),
+                              ),
+                              if (isMe) ...[
+                                const SizedBox(width: 6),
+                                Container(
+                                  padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 2),
+                                  decoration: BoxDecoration(
+                                    color: AppColors.accentGreen.withOpacity(0.2),
+                                    borderRadius: BorderRadius.circular(6),
+                                  ),
+                                  child: const Text(
+                                    'YOU',
+                                    style: TextStyle(
+                                      fontSize: 9,
+                                      fontWeight: FontWeight.w700,
+                                      color: AppColors.accentGreen,
+                                    ),
+                                  ),
+                                ),
+                              ],
+                            ],
+                          ),
+                          const SizedBox(height: 2),
+                          AnimatedBalanceText(
+                            balance: player.balance,
+                            style: const TextStyle(
+                              color: AppColors.accentGold,
+                              fontWeight: FontWeight.w600,
+                              fontSize: 12,
+                            ),
+                          ),
+                        ],
+                      ),
+                    ),
+                    if (player.isJailed)
+                      Icon(Icons.lock, color: AppColors.jailOrange, size: 18),
+                    if (isTurn)
+                      Container(
+                        padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
+                        decoration: BoxDecoration(
+                          color: AppColors.accentGreen,
+                          borderRadius: BorderRadius.circular(8),
+                        ),
+                        child: const Text(
+                          'TURN',
+                          style: TextStyle(
+                            color: Colors.white,
+                            fontWeight: FontWeight.w700,
+                            fontSize: 10,
+                          ),
+                        ),
+                      ),
+                  ],
+                ),
+              );
+            }),
+          ],
+        ),
+      ),
+    );
+  }
+
+  void _showGameOverDialog(BuildContext context, WidgetRef ref) {
+    final gameState = ref.read(gameStateProvider);
+    
+    showDialog(
+      context: context,
+      barrierDismissible: false,
+      builder: (ctx) => Dialog(
+        backgroundColor: Colors.transparent,
+        child: Container(
+          padding: const EdgeInsets.all(24),
+          decoration: BoxDecoration(
+            gradient: AppGradients.darkGradient,
+            borderRadius: BorderRadius.circular(20),
+            border: Border.all(color: AppColors.accentGold.withOpacity(0.5), width: 2),
+          ),
+          child: Column(
+            mainAxisSize: MainAxisSize.min,
+            children: [
+              Container(
+                padding: const EdgeInsets.all(16),
+                decoration: BoxDecoration(
+                  gradient: AppGradients.goldGradient,
+                  shape: BoxShape.circle,
+                  boxShadow: AppShadows.glowShadow(AppColors.accentGold),
+                ),
+                child: const Icon(Icons.emoji_events, color: Colors.white, size: 40),
+              ),
+              const SizedBox(height: 20),
+              const Text(
+                'GAME OVER',
+                style: TextStyle(
+                  fontSize: 24,
+                  fontWeight: FontWeight.w800,
+                  color: AppColors.textPrimary,
+                  letterSpacing: 2,
+                ),
+              ),
+              const SizedBox(height: 12),
+              Text(
+                gameState.notificationMessage ?? 'We have a winner!',
+                style: const TextStyle(
+                  fontSize: 14,
+                  color: AppColors.textSecondary,
+                ),
+                textAlign: TextAlign.center,
+              ),
+              const SizedBox(height: 24),
+              GradientButton.gold(
+                text: 'RETURN TO LOBBY',
+                icon: Icons.home,
+                onPressed: () {
+                  Navigator.of(context).popUntil((route) => route.isFirst);
+                },
+              ),
+            ],
+          ),
+        ),
+      ),
+    );
+  }
+}
+
+class TurnActionPanel extends ConsumerStatefulWidget {
+  final Animation<double>? pulseAnimation;
+  final bool compact;
+  
+  const TurnActionPanel({
+    super.key, 
+    this.pulseAnimation,
+    this.compact = false,
+  });
+
+  @override
+  ConsumerState<TurnActionPanel> createState() => _TurnActionPanelState();
+}
+
+class _TurnActionPanelState extends ConsumerState<TurnActionPanel> {
+  int _secondsRemaining = 15;
+  Timer? _timer;
+  String? _lastTurnPlayerId;
+  bool _lastHasRolled = false;
+
+  void _startTimer() {
+    _timer?.cancel();
+    setState(() {
+      _secondsRemaining = 15;
+    });
+    _timer = Timer.periodic(const Duration(seconds: 1), (timer) {
+      if (mounted) {
+        setState(() {
+          if (_secondsRemaining > 0) {
+            _secondsRemaining--;
+          } else {
+            _timer?.cancel();
+            _onTimerEnd();
+          }
+        });
+      }
+    });
+  }
+
+  void _onTimerEnd() {
+    final gameState = ref.read(gameStateProvider);
+    final networkState = ref.read(networkProvider);
+    if (gameState.currentPlayerId != networkState.myPlayerId) return;
+
+    if (!gameState.hasRolled) {
+      ref.read(networkProvider.notifier).rollDice();
+    } else {
+      ref.read(networkProvider.notifier).endTurn();
+    }
+  }
+
+  @override
+  void dispose() {
+    _timer?.cancel();
+    super.dispose();
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    final gameState = ref.watch(gameStateProvider);
+    final networkState = ref.watch(networkProvider);
+
+    final myPlayerIndex = gameState.players.indexWhere((p) => p.id == networkState.myPlayerId);
+    if (myPlayerIndex == -1) return const SizedBox.shrink();
+    final myPlayer = gameState.players[myPlayerIndex];
+
+    // Reset timer when turn changes or after roll
+    if (_lastTurnPlayerId != gameState.currentPlayerId || _lastHasRolled != gameState.hasRolled) {
+      _lastTurnPlayerId = gameState.currentPlayerId;
+      _lastHasRolled = gameState.hasRolled;
+      if (gameState.currentPlayerId == networkState.myPlayerId && gameState.phase == GamePhase.playing) {
+        WidgetsBinding.instance.addPostFrameCallback((_) => _startTimer());
+      } else {
+        _timer?.cancel();
+      }
+    }
+
+    return GlassCard(
+      padding: EdgeInsets.all(widget.compact ? 12 : 16),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.stretch,
+        mainAxisSize: MainAxisSize.min,
+        children: [
+          // Timer Bar
+          ClipRRect(
+            borderRadius: BorderRadius.circular(3),
+            child: Stack(
+              children: [
+                Container(
+                  height: 5,
+                  decoration: BoxDecoration(
+                    color: AppColors.darkSurfaceLight,
+                    borderRadius: BorderRadius.circular(3),
+                  ),
+                ),
+                LayoutBuilder(
+                  builder: (context, constraints) {
+                    return AnimatedContainer(
+                      duration: const Duration(milliseconds: 500),
+                      height: 5,
+                      width: constraints.maxWidth * (_secondsRemaining / 15),
+                      decoration: BoxDecoration(
+                        gradient: _secondsRemaining > 5 
+                            ? AppGradients.successGradient 
+                            : AppGradients.dangerGradient,
+                        borderRadius: BorderRadius.circular(3),
+                      ),
+                    );
+                  },
+                ),
+              ],
+            ),
+          ),
+          const SizedBox(height: 10),
+          
+          Center(
+            child: Row(
+              mainAxisSize: MainAxisSize.min,
+              children: [
+                Icon(
+                  Icons.timer,
+                  size: 14,
+                  color: _secondsRemaining > 5 ? AppColors.accentGreen : AppColors.accentRed,
+                ),
+                const SizedBox(width: 6),
+                Text(
+                  '${_secondsRemaining}s',
+                  style: TextStyle(
+                    fontWeight: FontWeight.w600,
+                    fontSize: 12,
+                    color: _secondsRemaining > 5 ? AppColors.textSecondary : AppColors.accentRed,
+                  ),
+                ),
+              ],
+            ),
+          ),
+          const SizedBox(height: 12),
+
+          if (!gameState.hasRolled) ...[
+            if (myPlayer.isJailed)
+              Padding(
+                padding: const EdgeInsets.only(bottom: 10),
+                child: GradientButton(
+                  text: 'PAY BAIL (₹150)',
+                  icon: Icons.lock_open,
+                  small: true,
+                  gradient: LinearGradient(
+                    colors: [AppColors.jailOrange, AppColors.accentOrange],
+                  ),
+                  onPressed: myPlayer.balance >= 150
+                      ? () => ref.read(networkProvider.notifier).payBail()
+                      : null,
+                ),
+              ),
+            ScaleTransition(
+              scale: widget.pulseAnimation ?? const AlwaysStoppedAnimation(1.0),
+              child: GradientButton(
+                text: 'ROLL DICE',
+                icon: Icons.casino,
+                gradient: AppGradients.primaryGradient,
+                onPressed: () => ref.read(networkProvider.notifier).rollDice(),
+              ),
+            ),
+          ] else ...[
+            Builder(builder: (context) {
+              final currentPos = myPlayer.position;
+              final propertyData = monopolyBoard.firstWhere(
+                (e) => e.index == currentPos,
+                orElse: () => BoardSpaceData(index: -1, name: "", type: "Unknown"),
+              );
+
+              final isBuyable = ['Property', 'Railroad', 'Utility'].contains(propertyData.type);
+              final isUnowned = !gameState.propertyOwners.containsKey(currentPos);
+              final canAfford = myPlayer.balance >= (propertyData.price ?? 0);
+
+              if (isBuyable && isUnowned) {
+                return GradientButton.success(
+                  text: 'BUY (₹${propertyData.price})',
+                  icon: Icons.add_home,
+                  onPressed: canAfford
+                      ? () {
+                          ref.read(networkProvider.notifier).buyProperty();
+                          ref.read(networkProvider.notifier).endTurn();
+                        }
+                      : null,
+                );
+              }
+              return Center(
+                child: Text(
+                  'Ending turn...',
+                  style: TextStyle(
+                    color: AppColors.textMuted,
+                    fontStyle: FontStyle.italic,
+                    fontSize: 12,
+                  ),
+                ),
+              );
+            }),
+          ],
+        ],
+      ),
+    );
+  }
+}

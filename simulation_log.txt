@@ -1,0 +1,377 @@
+Starting Simulation...
+
+--- Turn 0: Bot 1 (Pos: 0, Bal: 1500) ---
+Rolled: [6, 6] -> Move to: 12 [Free]
+Action: Bought Property at 12
+
+--- Turn 1: Bot 2 (Pos: 0, Bal: 1500) ---
+Rolled: [3, 1] -> Move to: 4 [Free]
+
+--- Turn 2: Bot 1 (Pos: 12, Bal: 1350) ---
+Rolled: [4, 6] -> Move to: 22 [Free]
+
+--- Turn 3: Bot 2 (Pos: 4, Bal: 1500) ---
+Rolled: [6, 2] -> Move to: 12 [Free]
+Event: Bot 2 paid $15 rent to Bot 1
+
+--- Turn 4: Bot 1 (Pos: 22, Bal: 1365) ---
+Rolled: [5, 5] -> Move to: 32 [Free]
+Action: Bought Property at 32
+
+--- Turn 5: Bot 2 (Pos: 12, Bal: 1485) ---
+Rolled: [5, 4] -> Move to: 21 [Free]
+Action: Bought Property at 21
+
+--- Turn 6: Bot 1 (Pos: 32, Bal: 1065) ---
+Rolled: [5, 5] -> Move to: 2 [Free]
+Event: Bot 1 Passed Go! (+$200)
+
+--- Turn 7: Bot 2 (Pos: 21, Bal: 1265) ---
+Rolled: [3, 4] -> Move to: 28 [Free]
+Action: Bought Property at 28
+
+--- Turn 8: Bot 1 (Pos: 2, Bal: 1265) ---
+Rolled: [1, 2] -> Move to: 5 [Free]
+Action: Bought Property at 5
+
+--- Turn 9: Bot 2 (Pos: 28, Bal: 1115) ---
+Rolled: [5, 3] -> Move to: 36 [Free]
+Action: Bought Property at 36
+
+--- Turn 10: Bot 1 (Pos: 5, Bal: 1065) ---
+Rolled: [3, 2] -> Move to: 10 [Free]
+
+--- Turn 11: Bot 2 (Pos: 36, Bal: 765) ---
+Rolled: [6, 4] -> Move to: 6 [Free]
+Event: Bot 2 Passed Go! (+$200)
+Action: Bought Property at 6
+
+--- Turn 12: Bot 1 (Pos: 10, Bal: 1065) ---
+Rolled: [1, 5] -> Move to: 16 [Free]
+Action: Bought Property at 16
+
+--- Turn 13: Bot 2 (Pos: 6, Bal: 865) ---
+Rolled: [4, 5] -> Move to: 15 [Free]
+Action: Bought Property at 15
+
+--- Turn 14: Bot 1 (Pos: 16, Bal: 885) ---
+Rolled: [1, 4] -> Move to: 21 [Free]
+Event: Bot 1 paid $22 rent to Bot 2
+
+--- Turn 15: Bot 2 (Pos: 15, Bal: 687) ---
+Rolled: [1, 4] -> Move to: 20 [Free]
+
+--- Turn 16: Bot 1 (Pos: 21, Bal: 863) ---
+Rolled: [2, 5] -> Move to: 28 [Free]
+Event: Bot 1 paid $15 rent to Bot 2
+
+--- Turn 17: Bot 2 (Pos: 20, Bal: 702) ---
+Rolled: [3, 3] -> Move to: 26 [Free]
+Action: Bought Property at 26
+
+--- Turn 18: Bot 1 (Pos: 28, Bal: 848) ---
+Rolled: [5, 6] -> Move to: 39 [Free]
+
+--- Turn 19: Bot 2 (Pos: 26, Bal: 442) ---
+Rolled: [1, 1] -> Move to: 28 [Free]
+
+--- Turn 20: Bot 1 (Pos: 39, Bal: 848) ---
+Rolled: [3, 1] -> Move to: 3 [Free]
+Event: Bot 1 Passed Go! (+$200)
+Action: Bought Property at 3
+
+--- Turn 21: Bot 2 (Pos: 28, Bal: 442) ---
+Rolled: [1, 6] -> Move to: 35 [Free]
+
+--- Turn 22: Bot 1 (Pos: 3, Bal: 988) ---
+Rolled: [2, 5] -> Move to: 10 [Free]
+
+--- Turn 23: Bot 2 (Pos: 35, Bal: 442) ---
+Rolled: [6, 5] -> Move to: 6 [Free]
+Event: Bot 2 Passed Go! (+$200)
+
+--- Turn 24: Bot 1 (Pos: 10, Bal: 988) ---
+Rolled: [5, 1] -> Move to: 16 [Free]
+
+--- Turn 25: Bot 2 (Pos: 6, Bal: 642) ---
+Rolled: [1, 2] -> Move to: 9 [Free]
+Action: Bought Property at 9
+
+--- Turn 26: Bot 1 (Pos: 16, Bal: 988) ---
+Rolled: [1, 3] -> Move to: 20 [Free]
+
+--- Turn 27: Bot 2 (Pos: 9, Bal: 522) ---
+Rolled: [3, 1] -> Move to: 13 [Free]
+Action: Bought Property at 13
+
+--- Turn 28: Bot 1 (Pos: 20, Bal: 988) ---
+Rolled: [2, 6] -> Move to: 28 [Free]
+Event: Bot 1 paid $15 rent to Bot 2
+
+--- Turn 29: Bot 2 (Pos: 13, Bal: 397) ---
+Rolled: [3, 1] -> Move to: 17 [Free]
+
+--- Turn 30: Bot 1 (Pos: 28, Bal: 973) ---
+Rolled: [4, 1] -> Move to: 33 [Free]
+
+--- Turn 31: Bot 2 (Pos: 17, Bal: 397) ---
+Rolled: [6, 5] -> Move to: 28 [Free]
+
+--- Turn 32: Bot 1 (Pos: 33, Bal: 973) ---
+Rolled: [6, 3] -> Move to: 2 [Free]
+Event: Bot 1 Passed Go! (+$200)
+
+--- Turn 33: Bot 2 (Pos: 28, Bal: 397) ---
+Rolled: [6, 1] -> Move to: 35 [Free]
+
+--- Turn 34: Bot 1 (Pos: 2, Bal: 1173) ---
+Rolled: [3, 5] -> Move to: 10 [Free]
+
+--- Turn 35: Bot 2 (Pos: 35, Bal: 397) ---
+Rolled: [5, 6] -> Move to: 6 [Free]
+Event: Bot 2 Passed Go! (+$200)
+
+--- Turn 36: Bot 1 (Pos: 10, Bal: 1173) ---
+Rolled: [5, 3] -> Move to: 18 [Free]
+Action: Bought Property at 18
+
+--- Turn 37: Bot 2 (Pos: 6, Bal: 597) ---
+Rolled: [6, 6] -> Move to: 18 [Free]
+Event: Bot 2 paid $18 rent to Bot 1
+
+--- Turn 38: Bot 1 (Pos: 18, Bal: 1011) ---
+Rolled: [6, 6] -> Move to: 10 [JAILED]
+Event: Bot 1 sent to Jail!
+
+--- Turn 39: Bot 2 (Pos: 18, Bal: 579) ---
+Rolled: [6, 4] -> Move to: 28 [Free]
+
+--- Turn 40: Bot 1 (Pos: 10, Bal: 1011) ---
+Status: IN JAIL
+Rolled: [3, 5] -> Move to: 10 [JAILED]
+Event: Bot 1 stayed in Jail (No Doubles)
+
+--- Turn 41: Bot 2 (Pos: 28, Bal: 579) ---
+Rolled: [2, 5] -> Move to: 35 [Free]
+Action: Bought Property at 35
+
+--- Turn 42: Bot 1 (Pos: 10, Bal: 1011) ---
+Status: IN JAIL
+Rolled: [6, 4] -> Move to: 10 [JAILED]
+Event: Bot 1 stayed in Jail (No Doubles)
+
+--- Turn 43: Bot 2 (Pos: 35, Bal: 379) ---
+Rolled: [1, 3] -> Move to: 39 [Free]
+
+--- Turn 44: Bot 1 (Pos: 10, Bal: 1011) ---
+Status: IN JAIL
+Rolled: [2, 1] -> Move to: 10 [JAILED]
+Event: Bot 1 stayed in Jail (No Doubles)
+
+--- Turn 45: Bot 2 (Pos: 39, Bal: 379) ---
+Rolled: [3, 6] -> Move to: 8 [Free]
+Event: Bot 2 Passed Go! (+$200)
+Action: Bought Property at 8
+
+--- Turn 46: Bot 1 (Pos: 10, Bal: 1011) ---
+Status: IN JAIL
+Rolled: [3, 3] -> Move to: 16 [Free]
+
+--- Turn 47: Bot 2 (Pos: 8, Bal: 479) ---
+Rolled: [5, 5] -> Move to: 18 [Free]
+Event: Bot 2 paid $18 rent to Bot 1
+
+--- Turn 48: Bot 1 (Pos: 16, Bal: 1029) ---
+Rolled: [5, 2] -> Move to: 23 [Free]
+Action: Bought Property at 23
+
+--- Turn 49: Bot 2 (Pos: 18, Bal: 461) ---
+Rolled: [1, 6] -> Move to: 25 [Free]
+
+--- Turn 50: Bot 1 (Pos: 23, Bal: 809) ---
+Rolled: [3, 6] -> Move to: 32 [Free]
+
+--- Turn 51: Bot 2 (Pos: 25, Bal: 461) ---
+Rolled: [5, 4] -> Move to: 34 [Free]
+
+--- Turn 52: Bot 1 (Pos: 32, Bal: 809) ---
+Rolled: [6, 3] -> Move to: 1 [Free]
+Event: Bot 1 Passed Go! (+$200)
+Action: Bought Property at 1
+
+--- Turn 53: Bot 2 (Pos: 34, Bal: 461) ---
+Rolled: [4, 3] -> Move to: 1 [Free]
+Event: Bot 2 paid $6 rent to Bot 1
+
+--- Turn 54: Bot 1 (Pos: 1, Bal: 955) ---
+Rolled: [6, 1] -> Move to: 8 [Free]
+Event: Bot 1 paid $10 rent to Bot 2
+
+--- Turn 55: Bot 2 (Pos: 1, Bal: 665) ---
+Rolled: [5, 4] -> Move to: 10 [Free]
+
+--- Turn 56: Bot 1 (Pos: 8, Bal: 945) ---
+Rolled: [1, 3] -> Move to: 12 [Free]
+
+--- Turn 57: Bot 2 (Pos: 10, Bal: 665) ---
+Rolled: [4, 2] -> Move to: 16 [Free]
+Event: Bot 2 paid $18 rent to Bot 1
+
+--- Turn 58: Bot 1 (Pos: 12, Bal: 963) ---
+Rolled: [5, 4] -> Move to: 21 [Free]
+Event: Bot 1 paid $22 rent to Bot 2
+
+--- Turn 59: Bot 2 (Pos: 16, Bal: 669) ---
+Rolled: [4, 1] -> Move to: 21 [Free]
+
+--- Turn 60: Bot 1 (Pos: 21, Bal: 941) ---
+Rolled: [6, 2] -> Move to: 29 [Free]
+Action: Bought Property at 29
+
+--- Turn 61: Bot 2 (Pos: 21, Bal: 669) ---
+Rolled: [4, 4] -> Move to: 29 [Free]
+Event: Bot 2 paid $28 rent to Bot 1
+
+--- Turn 62: Bot 1 (Pos: 29, Bal: 689) ---
+Rolled: [6, 5] -> Move to: 0 [Free]
+Event: Bot 1 Passed Go! (+$200)
+
+--- Turn 63: Bot 2 (Pos: 29, Bal: 641) ---
+Rolled: [5, 2] -> Move to: 36 [Free]
+
+--- Turn 64: Bot 1 (Pos: 0, Bal: 889) ---
+Rolled: [2, 5] -> Move to: 7 [Free]
+
+--- Turn 65: Bot 2 (Pos: 36, Bal: 641) ---
+Rolled: [4, 6] -> Move to: 6 [Free]
+Event: Bot 2 Passed Go! (+$200)
+
+--- Turn 66: Bot 1 (Pos: 7, Bal: 889) ---
+Rolled: [5, 2] -> Move to: 14 [Free]
+Action: Bought Property at 14
+
+--- Turn 67: Bot 2 (Pos: 6, Bal: 841) ---
+Rolled: [5, 3] -> Move to: 14 [Free]
+Event: Bot 2 paid $16 rent to Bot 1
+
+--- Turn 68: Bot 1 (Pos: 14, Bal: 745) ---
+Rolled: [2, 4] -> Move to: 20 [Free]
+
+--- Turn 69: Bot 2 (Pos: 14, Bal: 825) ---
+Rolled: [3, 1] -> Move to: 18 [Free]
+Event: Bot 2 paid $18 rent to Bot 1
+
+--- Turn 70: Bot 1 (Pos: 20, Bal: 763) ---
+Rolled: [3, 4] -> Move to: 27 [Free]
+Action: Bought Property at 27
+
+--- Turn 71: Bot 2 (Pos: 18, Bal: 807) ---
+Rolled: [4, 6] -> Move to: 28 [Free]
+
+--- Turn 72: Bot 1 (Pos: 27, Bal: 503) ---
+Rolled: [6, 1] -> Move to: 34 [Free]
+Action: Bought Property at 34
+
+--- Turn 73: Bot 2 (Pos: 28, Bal: 807) ---
+Rolled: [5, 4] -> Move to: 37 [Free]
+
+--- Turn 74: Bot 1 (Pos: 34, Bal: 183) ---
+Rolled: [2, 3] -> Move to: 39 [Free]
+
+--- Turn 75: Bot 2 (Pos: 37, Bal: 807) ---
+Rolled: [5, 3] -> Move to: 5 [Free]
+Event: Bot 2 paid $20 rent to Bot 1
+
+--- Turn 76: Bot 1 (Pos: 39, Bal: 203) ---
+Rolled: [5, 6] -> Move to: 10 [Free]
+Event: Bot 1 Passed Go! (+$200)
+
+--- Turn 77: Bot 2 (Pos: 5, Bal: 987) ---
+Rolled: [4, 4] -> Move to: 13 [Free]
+
+--- Turn 78: Bot 1 (Pos: 10, Bal: 403) ---
+Rolled: [5, 5] -> Move to: 20 [Free]
+
+--- Turn 79: Bot 2 (Pos: 13, Bal: 987) ---
+Rolled: [1, 2] -> Move to: 16 [Free]
+Event: Bot 2 paid $18 rent to Bot 1
+
+--- Turn 80: Bot 1 (Pos: 20, Bal: 421) ---
+Rolled: [2, 4] -> Move to: 26 [Free]
+Event: Bot 1 paid $26 rent to Bot 2
+
+--- Turn 81: Bot 2 (Pos: 16, Bal: 995) ---
+Rolled: [3, 3] -> Move to: 22 [Free]
+
+--- Turn 82: Bot 1 (Pos: 26, Bal: 395) ---
+Rolled: [1, 5] -> Move to: 32 [Free]
+
+--- Turn 83: Bot 2 (Pos: 22, Bal: 995) ---
+Rolled: [2, 6] -> Move to: 10 [JAILED]
+Event: Bot 2 sent to Jail!
+
+--- Turn 84: Bot 1 (Pos: 32, Bal: 395) ---
+Rolled: [3, 1] -> Move to: 36 [Free]
+Event: Bot 1 paid $35 rent to Bot 2
+
+--- Turn 85: Bot 2 (Pos: 10, Bal: 1030) ---
+Status: IN JAIL
+Rolled: [1, 2] -> Move to: 10 [JAILED]
+Event: Bot 2 stayed in Jail (No Doubles)
+
+--- Turn 86: Bot 1 (Pos: 36, Bal: 360) ---
+Rolled: [3, 2] -> Move to: 1 [Free]
+Event: Bot 1 Passed Go! (+$200)
+
+--- Turn 87: Bot 2 (Pos: 10, Bal: 1030) ---
+Status: IN JAIL
+Rolled: [5, 5] -> Move to: 20 [Free]
+
+--- Turn 88: Bot 1 (Pos: 1, Bal: 560) ---
+Rolled: [1, 4] -> Move to: 6 [Free]
+Event: Bot 1 paid $10 rent to Bot 2
+
+--- Turn 89: Bot 2 (Pos: 20, Bal: 1040) ---
+Rolled: [2, 2] -> Move to: 24 [Free]
+Action: Bought Property at 24
+
+--- Turn 90: Bot 1 (Pos: 6, Bal: 550) ---
+Rolled: [3, 5] -> Move to: 14 [Free]
+
+--- Turn 91: Bot 2 (Pos: 24, Bal: 800) ---
+Rolled: [4, 6] -> Move to: 34 [Free]
+Event: Bot 2 paid $32 rent to Bot 1
+
+--- Turn 92: Bot 1 (Pos: 14, Bal: 582) ---
+Rolled: [4, 3] -> Move to: 21 [Free]
+Event: Bot 1 paid $22 rent to Bot 2
+
+--- Turn 93: Bot 2 (Pos: 34, Bal: 790) ---
+Rolled: [5, 1] -> Move to: 0 [Free]
+Event: Bot 2 Passed Go! (+$200)
+
+--- Turn 94: Bot 1 (Pos: 21, Bal: 560) ---
+Rolled: [2, 6] -> Move to: 29 [Free]
+
+--- Turn 95: Bot 2 (Pos: 0, Bal: 990) ---
+Rolled: [5, 6] -> Move to: 11 [Free]
+Action: Bought Property at 11
+
+--- Turn 96: Bot 1 (Pos: 29, Bal: 560) ---
+Rolled: [2, 6] -> Move to: 37 [Free]
+
+--- Turn 97: Bot 2 (Pos: 11, Bal: 850) ---
+Rolled: [6, 1] -> Move to: 18 [Free]
+Event: Bot 2 paid $18 rent to Bot 1
+
+--- Turn 98: Bot 1 (Pos: 37, Bal: 578) ---
+Rolled: [3, 6] -> Move to: 6 [Free]
+Event: Bot 1 paid $10 rent to Bot 2
+
+--- Turn 99: Bot 2 (Pos: 18, Bal: 842) ---
+Rolled: [5, 5] -> Move to: 28 [Free]
+
+Simulation Complete.
+Winner: Tie/Ongoing
+Bot 1: $768
+Bot 2: $842
