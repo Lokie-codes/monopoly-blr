@@ -342,6 +342,14 @@ packages:
       url: "https://pub.dev"
     source: hosted
     version: "6.0.0"
+  flutter_multicast_lock:
+    dependency: "direct main"
+    description:
+      name: flutter_multicast_lock
+      sha256: c0c477231a4d9439d8f91d81a2220d2c50396bbfa090311dac8d09f620422004
+      url: "https://pub.dev"
+    source: hosted
+    version: "1.1.1"
   flutter_riverpod:
     dependency: "direct main"
     description:

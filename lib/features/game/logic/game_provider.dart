@@ -130,6 +130,20 @@ class NetworkNotifier extends Notifier<NetworkState> {
     return NetworkState();
   }
 
+  void leaveLobby() {
+    _discovery?.stop();
+    _server?.stop();
+    _client?.disconnect();
+    
+    _discovery = null;
+    _server = null;
+    _client = null;
+    
+    state = NetworkState();
+    ref.read(gameStateProvider.notifier).updateState(const GameState());
+    ref.read(chatProvider.notifier).clearMessages();
+  }
+
   // Helper to get player info for chat
   Player? _getMyPlayer() {
     final gameState = ref.read(gameStateProvider);

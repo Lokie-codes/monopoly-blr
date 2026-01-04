@@ -119,7 +119,10 @@ class _LobbyScreenState extends ConsumerState<LobbyScreen>
                         const SizedBox(height: 32),
                         
                         // Action Buttons
-                        _buildActionButtons(),
+                        if (!_isScanning)
+                          _buildActionButtons()
+                        else
+                          _buildScanningHeader(),
                         const SizedBox(height: 32),
                         
                         // Discovered Hosts
@@ -304,6 +307,54 @@ class _LobbyScreenState extends ConsumerState<LobbyScreen>
     );
   }
 
+  Widget _buildScanningHeader() {
+    return Row(
+      children: [
+        TextButton.icon(
+          onPressed: () {
+            setState(() => _isScanning = false);
+            ref.read(networkProvider.notifier).leaveLobby();
+          },
+          icon: const Icon(Icons.arrow_back, color: AppColors.textSecondary),
+          label: const Text(
+            'Back',
+            style: TextStyle(color: AppColors.textSecondary, fontWeight: FontWeight.w600),
+          ),
+        ),
+        const Spacer(),
+        Container(
+          padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 6),
+          decoration: BoxDecoration(
+            color: AppColors.accentBlue.withOpacity(0.1),
+            borderRadius: BorderRadius.circular(12),
+          ),
+          child: Row(
+            children: [
+              const SizedBox(
+                width: 12,
+                height: 12,
+                child: CircularProgressIndicator(
+                  strokeWidth: 2,
+                  valueColor: AlwaysStoppedAnimation(AppColors.accentBlue),
+                ),
+              ),
+              const SizedBox(width: 8),
+              Text(
+                'SCANNING',
+                style: TextStyle(
+                  fontSize: 10,
+                  fontWeight: FontWeight.w700,
+                  color: AppColors.accentBlue.withOpacity(0.8),
+                  letterSpacing: 1,
+                ),
+              ),
+            ],
+          ),
+        ),
+      ],
+    );
+  }
+
   Widget _buildActionButtons() {
     return Row(
       children: [
@@ -353,7 +404,7 @@ class _LobbyScreenState extends ConsumerState<LobbyScreen>
                 ),
                 const SizedBox(width: 12),
                 const Text(
-                  'Scanning for games...',
+                  'Looking for Nearby Tycoons...',
                   style: TextStyle(
                     fontSize: 16,
                     fontWeight: FontWeight.w500,
@@ -435,6 +486,20 @@ class _LobbyScreenState extends ConsumerState<LobbyScreen>
   Widget _buildConnectedLobby(NetworkState networkState, GameState gameState) {
     return Column(
       children: [
+        // Back Button
+        Align(
+          alignment: Alignment.centerLeft,
+          child: TextButton.icon(
+            onPressed: () => ref.read(networkProvider.notifier).leaveLobby(),
+            icon: const Icon(Icons.arrow_back, color: AppColors.textSecondary),
+            label: const Text(
+              'Leave Lobby',
+              style: TextStyle(color: AppColors.textSecondary, fontWeight: FontWeight.w600),
+            ),
+          ),
+        ),
+        const SizedBox(height: 16),
+
         // Status Card
         GlassCard(
           padding: const EdgeInsets.all(24),

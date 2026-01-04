@@ -1,6 +1,7 @@
 import 'dart:async';
 import 'dart:convert';
 import 'dart:io';
+import 'package:flutter_multicast_lock/flutter_multicast_lock.dart';
 
 class UdpDiscoveryService {
   static const int discoveryPort = 45454;
@@ -9,6 +10,7 @@ class UdpDiscoveryService {
   // For Host: Start broadcasting presence
   Timer? _broadcastTimer;
   RawDatagramSocket? _socket;
+  final _multicastLock = FlutterMulticastLock();
   
   // For Client: Listening stream
   final StreamController<String> _hostFoundController = StreamController.broadcast();
@@ -16,6 +18,7 @@ class UdpDiscoveryService {
 
   Future<void> startBroadcasting(String roomName) async {
     stop();
+    await _multicastLock.acquireMulticastLock();
     _socket = await RawDatagramSocket.bind(InternetAddress.anyIPv4, 0);
     _socket?.broadcastEnabled = true;
 
@@ -28,6 +31,7 @@ class UdpDiscoveryService {
 
   Future<void> startScanning() async {
     stop();
+    await _multicastLock.acquireMulticastLock();
     // Bind to the specific port to listen for broadcasts
     _socket = await RawDatagramSocket.bind(InternetAddress.anyIPv4, discoveryPort, reuseAddress: true);
     _socket?.broadcastEnabled = true;
@@ -57,5 +61,6 @@ class UdpDiscoveryService {
     _broadcastTimer?.cancel();
     _socket?.close();
     _socket = null;
+    _multicastLock.releaseMulticastLock();
   }
 }
