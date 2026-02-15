@@ -1,4 +1,5 @@
 import 'dart:async';
+import 'dart:convert';  // #19
 import 'dart:math';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:uuid/uuid.dart';
@@ -431,13 +432,46 @@ class NetworkNotifier extends Notifier<NetworkState> {
   }
   
   void _broadcastState(GameState newState) {
-     _server?.broadcast(NetworkMessage(
-       type: NetworkEventType.stateUpdate,
-       senderId: 'HOST',
-       payload: newState.toJson(),
+    _server?.broadcast(NetworkMessage(
+      type: NetworkEventType.stateUpdate,
+      senderId: 'HOST',
+      payload: newState.toJson(),
     ));
+    // #19: Auto-save game state on every broadcast
+    _saveGameState(newState);
   }
 
+  // #19: Save game state to SharedPreferences
+  Future<void> _saveGameState(GameState state) async {
+    try {
+      final prefs = await SharedPreferences.getInstance();
+      final json = jsonEncode(state.toJson());
+      await prefs.setString('monopoly_saved_game', json);
+    } catch (e) {
+      // Silently fail — saving is best-effort
+    }
+  }
+
+  // #19: Load game state from SharedPreferences
+  Future<GameState?> loadGameState() async {
+    try {
+      final prefs = await SharedPreferences.getInstance();
+      final json = prefs.getString('monopoly_saved_game');
+      if (json == null) return null;
+      final state = GameState.fromJson(jsonDecode(json));
+      if (state.phase == GamePhase.ended) return null;
+      ref.read(gameStateProvider.notifier).updateState(state);
+      return state;
+    } catch (e) {
+      return null;
+    }
+  }
+
+  // #19: Clear saved game
+  Future<void> clearSavedGame() async {
+    final prefs = await SharedPreferences.getInstance();
+    await prefs.remove('monopoly_saved_game');
+  }
   void _handleClientMessage(NetworkMessage msg) {
       if (msg.type == NetworkEventType.stateUpdate && msg.payload != null) {
           final newState = GameState.fromJson(msg.payload!);

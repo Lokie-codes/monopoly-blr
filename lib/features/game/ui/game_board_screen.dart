@@ -13,6 +13,7 @@ import '../../../core/widgets/dice_widget.dart';
 import 'widgets/board_widget.dart';
 import 'widgets/chat_widget.dart';
 import 'widgets/animated_balance_text.dart';
+import 'property_management_screen.dart';
 
 class GameBoardScreen extends ConsumerStatefulWidget {
   const GameBoardScreen({super.key});
@@ -237,6 +238,24 @@ class _GameBoardScreenState extends ConsumerState<GameBoardScreen>
                 child: TurnActionPanel(pulseAnimation: _pulseAnimation, compact: true),
               ),
           ],
+        ),
+        
+        // #21: Property Management Button - Floating
+        Positioned(
+          right: 12,
+          bottom: networkState.myPlayerId == gameState.currentPlayerId ? 140 : 52,
+          child: GestureDetector(
+            onTap: () => Navigator.push(context, MaterialPageRoute(builder: (_) => const PropertyManagementScreen())),
+            child: Container(
+              padding: const EdgeInsets.all(10),
+              decoration: BoxDecoration(
+                gradient: LinearGradient(colors: [Colors.teal, Colors.tealAccent.shade700]),
+                borderRadius: BorderRadius.circular(14),
+                boxShadow: AppShadows.glowShadow(Colors.teal),
+              ),
+              child: const Icon(Icons.home_work, color: Colors.white, size: 20),
+            ),
+          ),
         ),
         
         // Chat Button - Floating
