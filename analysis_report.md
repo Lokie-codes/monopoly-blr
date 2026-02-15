@@ -31,10 +31,10 @@
 ### 7. Missing Core Monopoly Mechanics
 | Feature | Status | Impact |
 |---|---|---|
-| **Houses & Hotels** | ❌ Missing | Core wealth-building mechanic |
+| **Houses & Hotels** | ✅ Done | Build houses on complete color groups, even-build rule, rent scales 5x-60x |
 | **Mortgage system** | ❌ Missing | No way to trade properties for cash |
 | **Property trading** | ❌ Missing | Huge part of the game's strategy |
-| **Auction system** | ❌ Missing | Unowned property should be auctioned if declined |
+| **Auction system** | ✅ Done | Decline-to-buy triggers auction for all players |
 | **Color group bonuses** | ✅ Done | Owning all properties of a color now doubles rent |
 | **Railroad/Utility rent scaling** | ✅ Done | Rent scales with count (RR: 25*N) and dice roll (Util: 4x/10x) |
 | **Income/Luxury Tax spaces** | ✅ Done | Added Income Tax (₹200) and Luxury Tax (₹100) spaces |
@@ -169,7 +169,7 @@ The host should be able to kick AFK players. Currently a disconnected player jus
 | 🟡 Med | Low | Extract `_int32ToBytes` to shared util (#14) | ✅ Done |
 | 🟡 Med | Low | Convert `BoardSpaceData.type` to enum (#18) | ✅ Done |
 | 🔵 Low | High | Split `NetworkNotifier` god class (#12) | ❌ Pending |
-| 🔵 Low | High | Implement houses/hotels (#7) | ❌ Pending |
+| 🔵 Low | High | Implement houses/hotels (#7) | ✅ Done |
 | 🔵 Low | High | Property trading system (#7) | ❌ Pending |
 | 🔵 Low | Med | Add reconnection retry logic (#13) | ✅ Done |
 | 🟢 Nice | Med | Property management screen (#21) | ❌ Pending |
