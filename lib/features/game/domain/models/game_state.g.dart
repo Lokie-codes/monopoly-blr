@@ -25,6 +25,11 @@ GameState _$GameStateFromJson(Map<String, dynamic> json) => GameState(
         (k, e) => MapEntry(int.parse(k), e as String),
       ) ??
       const {},
+  propertyHouses:
+      (json['propertyHouses'] as Map<String, dynamic>?)?.map(
+        (k, e) => MapEntry(int.parse(k), (e as num).toInt()),
+      ) ??
+      const {},
   hasRolled: json['hasRolled'] as bool? ?? false,
   notificationMessage: json['notificationMessage'] as String?,
   pendingDiceRoll:
@@ -34,6 +39,13 @@ GameState _$GameStateFromJson(Map<String, dynamic> json) => GameState(
       const [],
   isAnimatingDice: json['isAnimatingDice'] as bool? ?? false,
   canRollAgain: json['canRollAgain'] as bool? ?? false,
+  auctionPropertyIndex: (json['auctionPropertyIndex'] as num?)?.toInt(),
+  auctionBids:
+      (json['auctionBids'] as Map<String, dynamic>?)?.map(
+        (k, e) => MapEntry(k, (e as num).toInt()),
+      ) ??
+      const {},
+  auctionCurrentBidderId: json['auctionCurrentBidderId'] as String?,
 );
 
 Map<String, dynamic> _$GameStateToJson(GameState instance) => <String, dynamic>{
@@ -44,15 +56,22 @@ Map<String, dynamic> _$GameStateToJson(GameState instance) => <String, dynamic>{
   'propertyOwners': instance.propertyOwners.map(
     (k, e) => MapEntry(k.toString(), e),
   ),
+  'propertyHouses': instance.propertyHouses.map(
+    (k, e) => MapEntry(k.toString(), e),
+  ),
   'hasRolled': instance.hasRolled,
   'notificationMessage': instance.notificationMessage,
   'pendingDiceRoll': instance.pendingDiceRoll,
   'isAnimatingDice': instance.isAnimatingDice,
   'canRollAgain': instance.canRollAgain,
+  'auctionPropertyIndex': instance.auctionPropertyIndex,
+  'auctionBids': instance.auctionBids,
+  'auctionCurrentBidderId': instance.auctionCurrentBidderId,
 };
 
 const _$GamePhaseEnumMap = {
   GamePhase.lobby: 'lobby',
   GamePhase.playing: 'playing',
+  GamePhase.auction: 'auction',
   GamePhase.ended: 'ended',
 };

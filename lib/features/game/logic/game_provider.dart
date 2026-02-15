@@ -652,7 +652,7 @@ class NetworkNotifier extends Notifier<NetworkState> {
                 tempPlayers[payerIndex] = payer.copyWith(balance: newBalance);
                 tempPlayers[ownerIndex] = owner.copyWith(balance: owner.balance + rentAmount);
                 
-                systemMessage = "${payer.name} paid Ã¢â€šÂ¹$rentAmount rent to ${owner.name}";
+                systemMessage = "${payer.name} paid ÃƒÂ¢Ã¢â‚¬Å¡Ã‚Â¹$rentAmount rent to ${owner.name}";
                 ref.read(chatProvider.notifier).addActionMessage(systemMessage);
                 
                 // ELIMINATION CHECK
@@ -820,7 +820,7 @@ class NetworkNotifier extends Notifier<NetworkState> {
               notificationMessage: "${player.name} bought ${propertyData.name}",
           );
           
-          ref.read(chatProvider.notifier).addActionMessage("${player.name} bought ${propertyData.name} for Ã¢â€šÂ¹${price}");
+          ref.read(chatProvider.notifier).addActionMessage("${player.name} bought ${propertyData.name} for ÃƒÂ¢Ã¢â‚¬Å¡Ã‚Â¹${price}");
           
           ref.read(gameStateProvider.notifier).updateState(newState);
           _broadcastState(newState);
@@ -885,14 +885,237 @@ class NetworkNotifier extends Notifier<NetworkState> {
 
           final newState = current.copyWith(
               players: updatedPlayers,
-              notificationMessage: "${player.name} paid Ã¢â€šÂ¹150 to leave Jail",
+              notificationMessage: "${player.name} paid ÃƒÂ¢Ã¢â‚¬Å¡Ã‚Â¹150 to leave Jail",
           );
 
-          ref.read(chatProvider.notifier).addActionMessage("${player.name} paid Ã¢â€šÂ¹150 to get out of jail");
+          ref.read(chatProvider.notifier).addActionMessage("${player.name} paid ÃƒÂ¢Ã¢â‚¬Å¡Ã‚Â¹150 to get out of jail");
 
           ref.read(gameStateProvider.notifier).updateState(newState);
           _broadcastState(newState);
       }
+  }
+
+  // #7c: Build a house on a property
+  void processBuildHouse(String playerId, int propertyIndex) {
+    final current = ref.read(gameStateProvider);
+    if (current.currentPlayerId != playerId && !state.isHost) return;
+
+    final propertyData = monopolyBoard.firstWhere(
+      (s) => s.index == propertyIndex,
+      orElse: () => BoardSpaceData(index: -1, name: "", type: BoardSpaceType.corner),
+    );
+
+    // Validation
+    if (propertyData.type != BoardSpaceType.property) return;
+    if (current.propertyOwners[propertyIndex] != playerId) return;
+    if (propertyData.houseCost == null) return;
+
+    final currentHouses = current.propertyHouses[propertyIndex] ?? 0;
+    if (currentHouses >= 5) return; // Max is hotel (5)
+    
+    // Must own all properties of the color group
+    final sameColor = monopolyBoard.where((s) => s.colorHex == propertyData.colorHex).toList();
+    final ownsAll = sameColor.every((s) => current.propertyOwners[s.index] == playerId);
+    if (!ownsAll) return;
+
+    // Even-build rule: can't build on this property if it already has more houses than any other in the group
+    final minHouses = sameColor.map((s) => current.propertyHouses[s.index] ?? 0).reduce((a, b) => a < b ? a : b);
+    if (currentHouses > minHouses) return;
+    
+    final playerIndex = current.players.indexWhere((p) => p.id == playerId);
+    if (playerIndex == -1) return;
+    final player = current.players[playerIndex];
+    if (player.balance < propertyData.houseCost!) return;
+
+    final updatedPlayers = List<Player>.from(current.players);
+    updatedPlayers[playerIndex] = player.copyWith(balance: player.balance - propertyData.houseCost!);
+
+    final updatedHouses = Map<int, int>.from(current.propertyHouses);
+    updatedHouses[propertyIndex] = currentHouses + 1;
+    
+    final label = (currentHouses + 1) == 5 ? "hotel" : "house #${currentHouses + 1}";
+    final newState = current.copyWith(
+      players: updatedPlayers,
+      propertyHouses: updatedHouses,
+      notificationMessage: "${player.name} built $label on ${propertyData.name}",
+    );
+    ref.read(chatProvider.notifier).addActionMessage("${player.name} built $label on ${propertyData.name} (₹${propertyData.houseCost})");
+    ref.read(gameStateProvider.notifier).updateState(newState);
+    _broadcastState(newState);
+  }
+
+  // #7c: Sell a house from a property (get half cost back)
+  void processSellHouse(String playerId, int propertyIndex) {
+    final current = ref.read(gameStateProvider);
+    if (current.propertyOwners[propertyIndex] != playerId) return;
+
+    final propertyData = monopolyBoard.firstWhere((s) => s.index == propertyIndex, orElse: () => BoardSpaceData(index: -1, name: "", type: BoardSpaceType.corner));
+    if (propertyData.houseCost == null) return;
+
+    final currentHouses = current.propertyHouses[propertyIndex] ?? 0;
+    if (currentHouses <= 0) return;
+
+    // Even-sell rule: can't sell from this property if it already has fewer houses than any other in the group
+    final sameColor = monopolyBoard.where((s) => s.colorHex == propertyData.colorHex).toList();
+    final maxHouses = sameColor.map((s) => current.propertyHouses[s.index] ?? 0).reduce((a, b) => a > b ? a : b);
+    if (currentHouses < maxHouses) return;
+
+    final refund = propertyData.houseCost! ~/ 2;
+    final playerIndex = current.players.indexWhere((p) => p.id == playerId);
+    if (playerIndex == -1) return;
+    final player = current.players[playerIndex];
+
+    final updatedPlayers = List<Player>.from(current.players);
+    updatedPlayers[playerIndex] = player.copyWith(balance: player.balance + refund);
+    final updatedHouses = Map<int, int>.from(current.propertyHouses);
+    updatedHouses[propertyIndex] = currentHouses - 1;
+    if (updatedHouses[propertyIndex] == 0) updatedHouses.remove(propertyIndex);
+
+    final newState = current.copyWith(
+      players: updatedPlayers,
+      propertyHouses: updatedHouses,
+      notificationMessage: "${player.name} sold a house on ${propertyData.name} (+₹$refund)",
+    );
+    ref.read(chatProvider.notifier).addActionMessage("${player.name} sold a house on ${propertyData.name} (+₹$refund)");
+    ref.read(gameStateProvider.notifier).updateState(newState);
+    _broadcastState(newState);
+  }
+
+  // #7d: Start an auction when a player declines to buy
+  void startAuction(int propertyIndex) {
+    final current = ref.read(gameStateProvider);
+    if (current.propertyOwners.containsKey(propertyIndex)) return;
+    
+    final firstBidderId = current.players.first.id;
+    final propertyData = monopolyBoard.firstWhere((s) => s.index == propertyIndex);
+
+    final newState = current.copyWith(
+      phase: GamePhase.auction,
+      auctionPropertyIndex: propertyIndex,
+      auctionBids: {},
+      auctionCurrentBidderId: firstBidderId,
+      notificationMessage: " Auction: ${propertyData.name} - ${current.players.first.name}'s turn to bid",
+    );
+    ref.read(chatProvider.notifier).addActionMessage("Auction started for ${propertyData.name}!");
+    ref.read(gameStateProvider.notifier).updateState(newState);
+    _broadcastState(newState);
+  }
+
+  // #7d: Place a bid in the auction
+  void processAuctionBid(String playerId, int bidAmount) {
+    final current = ref.read(gameStateProvider);
+    if (current.phase != GamePhase.auction) return;
+    if (current.auctionCurrentBidderId != playerId) return;
+
+    final playerIndex = current.players.indexWhere((p) => p.id == playerId);
+    if (playerIndex == -1) return;
+    final player = current.players[playerIndex];
+    if (bidAmount > player.balance) return;
+    
+    // Bid must be higher than current highest
+    final currentHighest = current.auctionBids.values.isEmpty ? 0 : current.auctionBids.values.reduce((a, b) => a > b ? a : b);
+    if (bidAmount <= currentHighest) return;
+
+    final updatedBids = Map<String, int>.from(current.auctionBids);
+    updatedBids[playerId] = bidAmount;
+
+    // Move to next bidder
+    final nextBidderId = _getNextAuctionBidder(current, playerId);
+    
+    final newState = current.copyWith(
+      auctionBids: updatedBids,
+      auctionCurrentBidderId: nextBidderId,
+      notificationMessage: " ${player.name} bids ₹$bidAmount",
+    );
+    ref.read(chatProvider.notifier).addActionMessage("${player.name} bids ₹$bidAmount");
+    ref.read(gameStateProvider.notifier).updateState(newState);
+    _broadcastState(newState);
+  }
+
+  // #7d: Pass on auction (decline to bid)
+  void processAuctionPass(String playerId) {
+    final current = ref.read(gameStateProvider);
+    if (current.phase != GamePhase.auction) return;
+    if (current.auctionCurrentBidderId != playerId) return;
+
+    final player = current.players.firstWhere((p) => p.id == playerId);
+    ref.read(chatProvider.notifier).addActionMessage("${player.name} passes");
+
+    // Remove from bidding by not adding a bid
+    final nextBidderId = _getNextAuctionBidder(current, playerId);
+    
+    // Check if auction should end (only one bidder left or everyone passed)
+    final activeBidders = current.players.where((p) => current.auctionBids.containsKey(p.id) || p.id == nextBidderId).toList();
+    
+    if (nextBidderId == null || activeBidders.length <= 1) {
+      _resolveAuction(current);
+      return;
+    }
+
+    final newState = current.copyWith(
+      auctionCurrentBidderId: nextBidderId,
+      notificationMessage: " ${player.name} passes - ${current.players.firstWhere((p) => p.id == nextBidderId).name}'s turn",
+    );
+    ref.read(gameStateProvider.notifier).updateState(newState);
+    _broadcastState(newState);
+  }
+
+  String? _getNextAuctionBidder(GameState current, String currentBidderId) {
+    final playerIds = current.players.map((p) => p.id).toList();
+    final currentIdx = playerIds.indexOf(currentBidderId);
+    
+    // Find next player who hasn't been outbid or passed
+    for (int i = 1; i < playerIds.length; i++) {
+      final nextIdx = (currentIdx + i) % playerIds.length;
+      final nextId = playerIds[nextIdx];
+      // Skip if they already passed (not in bids and not current)
+      if (nextId != currentBidderId) return nextId;
+    }
+    return null;
+  }
+
+  void _resolveAuction(GameState current) {
+    final propertyIndex = current.auctionPropertyIndex;
+    if (propertyIndex == null) return;
+
+    final propertyData = monopolyBoard.firstWhere((s) => s.index == propertyIndex);
+
+    if (current.auctionBids.isEmpty) {
+      // No one bid — property stays unowned
+      final newState = current.copyWith(
+        phase: GamePhase.playing,
+        notificationMessage: "No bids for ${propertyData.name} — stays unowned",
+      );
+      ref.read(gameStateProvider.notifier).updateState(newState);
+      _broadcastState(newState);
+      processEndTurn(current.currentPlayerId!);
+      return;
+    }
+
+    // Find highest bidder
+    String winnerId = current.auctionBids.entries.reduce((a, b) => a.value > b.value ? a : b).key;
+    int winAmount = current.auctionBids[winnerId]!;
+
+    final winnerIndex = current.players.indexWhere((p) => p.id == winnerId);
+    if (winnerIndex == -1) return;
+    final winner = current.players[winnerIndex];
+
+    final updatedPlayers = List<Player>.from(current.players);
+    updatedPlayers[winnerIndex] = winner.copyWith(balance: winner.balance - winAmount);
+
+    final updatedOwners = Map<int, String>.from(current.propertyOwners);
+    updatedOwners[propertyIndex] = winnerId;
+
+    final newState = current.copyWith(
+      players: updatedPlayers,
+      propertyOwners: updatedOwners,
+      phase: GamePhase.playing,
+      notificationMessage: " ${winner.name} wins ${propertyData.name} for ₹$winAmount!",
+    );
+    ref.read(chatProvider.notifier).addActionMessage("${winner.name} won auction for ${propertyData.name} at ₹$winAmount");
+    ref.read(gameStateProvider.notifier).updateState(newState);
+    _broadcastState(newState);
+    processEndTurn(current.currentPlayerId!);
   }
 
   // #6: Server-side turn timeout
@@ -907,11 +1130,11 @@ class NetworkNotifier extends Notifier<NetworkState> {
       
       if (!current.hasRolled) {
         // Auto-roll for AFK player
-        ref.read(chatProvider.notifier).addActionMessage('Turn timer expired Ã¯Â¿Â½ auto-rolling');
+        ref.read(chatProvider.notifier).addActionMessage('Turn timer expired ÃƒÂ¯Ã‚Â¿Ã‚Â½ auto-rolling');
         processRollDiceForPlayer(playerId);
       } else {
         // Already rolled, auto-end turn
-        ref.read(chatProvider.notifier).addActionMessage('Turn timer expired Ã¯Â¿Â½ auto-ending turn');
+        ref.read(chatProvider.notifier).addActionMessage('Turn timer expired ÃƒÂ¯Ã‚Â¿Ã‚Â½ auto-ending turn');
         processEndTurn(playerId);
       }
     });

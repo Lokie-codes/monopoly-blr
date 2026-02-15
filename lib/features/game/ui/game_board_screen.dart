@@ -1079,6 +1079,73 @@ class _TurnActionPanelState extends ConsumerState<TurnActionPanel> {
                 onPressed: () => ref.read(networkProvider.notifier).rollDice(),
               ),
             ),
+          ] else if (gameState.phase == GamePhase.auction) ...[
+            // #7d: Auction phase UI
+            Builder(builder: (context) {
+              final auctionIdx = gameState.auctionPropertyIndex;
+              if (auctionIdx == null) return const SizedBox.shrink();
+              
+              final propData = monopolyBoard.firstWhere((s) => s.index == auctionIdx);
+              final currentHighest = gameState.auctionBids.values.isEmpty 
+                  ? 0 
+                  : gameState.auctionBids.values.reduce((a, b) => a > b ? a : b);
+              final isMyBidTurn = gameState.auctionCurrentBidderId == networkState.myPlayerId;
+              
+              return Column(
+                crossAxisAlignment: CrossAxisAlignment.stretch,
+                children: [
+                  Container(
+                    padding: const EdgeInsets.all(10),
+                    decoration: BoxDecoration(
+                      color: Colors.amber.withOpacity(0.15),
+                      borderRadius: BorderRadius.circular(10),
+                      border: Border.all(color: Colors.amber.withOpacity(0.3)),
+                    ),
+                    child: Column(
+                      children: [
+                        Text('🔨 AUCTION', style: TextStyle(fontSize: 14, fontWeight: FontWeight.w800, color: Colors.amber)),
+                        const SizedBox(height: 4),
+                        Text(propData.name, style: TextStyle(fontSize: 16, fontWeight: FontWeight.bold, color: Colors.white)),
+                        Text('Current bid: ₹$currentHighest', style: TextStyle(fontSize: 13, color: Colors.white70)),
+                      ],
+                    ),
+                  ),
+                  if (isMyBidTurn) ...[
+                    const SizedBox(height: 10),
+                    Row(
+                      children: [
+                        Expanded(
+                          child: GradientButton(
+                            text: 'BID ₹${currentHighest + 10}',
+                            icon: Icons.gavel,
+                            gradient: AppGradients.successGradient,
+                            small: true,
+                            onPressed: myPlayer.balance >= currentHighest + 10
+                                ? () => ref.read(networkProvider.notifier).processAuctionBid(
+                                    networkState.myPlayerId!, currentHighest + 10)
+                                : null,
+                          ),
+                        ),
+                        const SizedBox(width: 8),
+                        Expanded(
+                          child: GradientButton(
+                            text: 'PASS',
+                            icon: Icons.close,
+                            gradient: AppGradients.dangerGradient,
+                            small: true,
+                            onPressed: () => ref.read(networkProvider.notifier).processAuctionPass(
+                                networkState.myPlayerId!),
+                          ),
+                        ),
+                      ],
+                    ),
+                  ] else ...[
+                    const SizedBox(height: 8),
+                    Center(child: Text('Waiting for bid...', style: TextStyle(color: AppColors.textMuted, fontStyle: FontStyle.italic, fontSize: 12))),
+                  ],
+                ],
+              );
+            }),
           ] else ...[
             Builder(builder: (context) {
               final currentPos = myPlayer.position;
@@ -1091,55 +1158,112 @@ class _TurnActionPanelState extends ConsumerState<TurnActionPanel> {
               final isUnowned = !gameState.propertyOwners.containsKey(currentPos);
               final canAfford = myPlayer.balance >= (propertyData.price ?? 0);
 
-              if (isBuyable && isUnowned) {
-                return GradientButton.success(
-                  text: 'BUY (₹${propertyData.price})',
-                  icon: Icons.add_home,
-                  onPressed: canAfford
-                      ? () async {
-                          // #26: Confirmation dialog before purchase
-                          final confirmed = await showDialog<bool>(
-                            context: context,
-                            builder: (ctx) => AlertDialog(
-                              backgroundColor: const Color(0xFF1A1A2E),
-                              shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(16)),
-                              title: Text('Buy ${propertyData.name}?', style: const TextStyle(color: Colors.white)),
-                              content: Column(
-                                mainAxisSize: MainAxisSize.min,
-                                crossAxisAlignment: CrossAxisAlignment.start,
-                                children: [
-                                  Text('Price: ₹${propertyData.price}', style: const TextStyle(color: Colors.white70, fontSize: 16)),
-                                  const SizedBox(height: 4),
-                                  Text('Balance after: ₹${myPlayer.balance - (propertyData.price ?? 0)}', style: TextStyle(color: (myPlayer.balance - (propertyData.price ?? 0)) > 100 ? Colors.greenAccent : Colors.orangeAccent, fontSize: 16, fontWeight: FontWeight.bold)),
-                                ],
-                              ),
-                              actions: [
-                                TextButton(onPressed: () => Navigator.pop(ctx, false), child: const Text('Cancel', style: TextStyle(color: Colors.white54))),
-                                ElevatedButton(
-                                  style: ElevatedButton.styleFrom(backgroundColor: Colors.green),
-                                  onPressed: () => Navigator.pop(ctx, true),
-                                  child: const Text('Buy'),
-                                ),
-                              ],
-                            ),
-                          );
-                          if (confirmed == true) {
-                            ref.read(networkProvider.notifier).buyProperty();
-                            ref.read(networkProvider.notifier).endTurn();
-                          }
-                        }
-                      : null,
-                );
-              }
-              return Center(
-                child: Text(
-                  'Ending turn...',
-                  style: TextStyle(
-                    color: AppColors.textMuted,
-                    fontStyle: FontStyle.italic,
-                    fontSize: 12,
-                  ),
-                ),
+              return Column(
+                crossAxisAlignment: CrossAxisAlignment.stretch,
+                children: [
+                  if (isBuyable && isUnowned) ...[
+                    Row(
+                      children: [
+                        Expanded(
+                          child: GradientButton.success(
+                            text: 'BUY (₹${propertyData.price})',
+                            icon: Icons.add_home,
+                            small: true,
+                            onPressed: canAfford
+                                ? () async {
+                                    final confirmed = await showDialog<bool>(
+                                      context: context,
+                                      builder: (ctx) => AlertDialog(
+                                        backgroundColor: const Color(0xFF1A1A2E),
+                                        shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(16)),
+                                        title: Text('Buy ${propertyData.name}?', style: const TextStyle(color: Colors.white)),
+                                        content: Column(
+                                          mainAxisSize: MainAxisSize.min,
+                                          crossAxisAlignment: CrossAxisAlignment.start,
+                                          children: [
+                                            Text('Price: ₹${propertyData.price}', style: const TextStyle(color: Colors.white70, fontSize: 16)),
+                                            const SizedBox(height: 4),
+                                            Text('Balance after: ₹${myPlayer.balance - (propertyData.price ?? 0)}', style: TextStyle(color: (myPlayer.balance - (propertyData.price ?? 0)) > 100 ? Colors.greenAccent : Colors.orangeAccent, fontSize: 16, fontWeight: FontWeight.bold)),
+                                          ],
+                                        ),
+                                        actions: [
+                                          TextButton(onPressed: () => Navigator.pop(ctx, false), child: const Text('Cancel', style: TextStyle(color: Colors.white54))),
+                                          ElevatedButton(
+                                            style: ElevatedButton.styleFrom(backgroundColor: Colors.green),
+                                            onPressed: () => Navigator.pop(ctx, true),
+                                            child: const Text('Buy'),
+                                          ),
+                                        ],
+                                      ),
+                                    );
+                                    if (confirmed == true) {
+                                      ref.read(networkProvider.notifier).buyProperty();
+                                      ref.read(networkProvider.notifier).endTurn();
+                                    }
+                                  }
+                                : null,
+                          ),
+                        ),
+                        const SizedBox(width: 8),
+                        // #7d: Decline → triggers auction
+                        Expanded(
+                          child: GradientButton(
+                            text: 'AUCTION',
+                            icon: Icons.gavel,
+                            gradient: LinearGradient(colors: [Colors.amber.shade700, Colors.orange]),
+                            small: true,
+                            onPressed: () => ref.read(networkProvider.notifier).startAuction(currentPos),
+                          ),
+                        ),
+                      ],
+                    ),
+                  ] else ...[
+                    // #7c: Build house button if player owns a complete color group
+                    Builder(builder: (_) {
+                      // Find properties where player can build
+                      final myId = networkState.myPlayerId;
+                      final buildableProps = monopolyBoard.where((space) {
+                        if (space.type != BoardSpaceType.property) return false;
+                        if (gameState.propertyOwners[space.index] != myId) return false;
+                        if (space.houseCost == null) return false;
+                        final houses = gameState.propertyHouses[space.index] ?? 0;
+                        if (houses >= 5) return false;
+                        // Must own all in color group
+                        final sameColor = monopolyBoard.where((s) => s.colorHex == space.colorHex);
+                        final ownsAll = sameColor.every((s) => gameState.propertyOwners[s.index] == myId);
+                        if (!ownsAll) return false;
+                        // Even-build check
+                        final minH = sameColor.map((s) => gameState.propertyHouses[s.index] ?? 0).reduce((a, b) => a < b ? a : b);
+                        return houses <= minH;
+                      }).toList();
+
+                      if (buildableProps.isNotEmpty) {
+                        return Padding(
+                          padding: const EdgeInsets.only(bottom: 8),
+                          child: GradientButton(
+                            text: 'BUILD HOUSE (${buildableProps.length} available)',
+                            icon: Icons.house,
+                            gradient: LinearGradient(colors: [Colors.teal, Colors.tealAccent.shade700]),
+                            small: true,
+                            onPressed: () {
+                              // Build on the first available (cheapest)
+                              final target = buildableProps.first;
+                              ref.read(networkProvider.notifier).processBuildHouse(myId!, target.index);
+                            },
+                          ),
+                        );
+                      }
+                      return const SizedBox.shrink();
+                    }),
+                    GradientButton(
+                      text: gameState.canRollAgain ? 'ROLL AGAIN' : 'END TURN',
+                      icon: gameState.canRollAgain ? Icons.casino : Icons.skip_next,
+                      gradient: gameState.canRollAgain ? AppGradients.primaryGradient : LinearGradient(colors: [Colors.grey.shade600, Colors.grey.shade700]),
+                      small: true,
+                      onPressed: () => ref.read(networkProvider.notifier).endTurn(),
+                    ),
+                  ],
+                ],
               );
             }),
           ],

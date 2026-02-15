@@ -4,7 +4,7 @@ import 'player.dart';
 
 part 'game_state.g.dart';
 
-enum GamePhase { lobby, playing, ended }
+enum GamePhase { lobby, playing, auction, ended }
 
 @JsonSerializable(explicitToJson: true)
 class GameState extends Equatable {
@@ -13,11 +13,16 @@ class GameState extends Equatable {
   final GamePhase phase;
   final List<int> lastDiceRoll;
   final Map<int, String> propertyOwners;
+  final Map<int, int> propertyHouses; // #7c: property index -> house count (0-4 houses, 5=hotel)
   final bool hasRolled;
   final String? notificationMessage;
   final List<int> pendingDiceRoll;
   final bool isAnimatingDice;
   final bool canRollAgain;
+  // #7d: Auction state
+  final int? auctionPropertyIndex;
+  final Map<String, int> auctionBids; // playerId -> bid amount
+  final String? auctionCurrentBidderId;
   
   const GameState({
     this.players = const [],
@@ -25,11 +30,15 @@ class GameState extends Equatable {
     this.phase = GamePhase.lobby,
     this.lastDiceRoll = const [],
     this.propertyOwners = const {},
+    this.propertyHouses = const {},
     this.hasRolled = false,
     this.notificationMessage,
     this.pendingDiceRoll = const [],
     this.isAnimatingDice = false,
     this.canRollAgain = false,
+    this.auctionPropertyIndex,
+    this.auctionBids = const {},
+    this.auctionCurrentBidderId,
   });
 
   GameState copyWith({
@@ -38,11 +47,15 @@ class GameState extends Equatable {
     GamePhase? phase,
     List<int>? lastDiceRoll,
     Map<int, String>? propertyOwners,
+    Map<int, int>? propertyHouses,
     bool? hasRolled,
     String? notificationMessage,
     List<int>? pendingDiceRoll,
     bool? isAnimatingDice,
     bool? canRollAgain,
+    int? auctionPropertyIndex,
+    Map<String, int>? auctionBids,
+    String? auctionCurrentBidderId,
   }) {
     return GameState(
       players: players ?? this.players,
@@ -50,11 +63,15 @@ class GameState extends Equatable {
       phase: phase ?? this.phase,
       lastDiceRoll: lastDiceRoll ?? this.lastDiceRoll,
       propertyOwners: propertyOwners ?? this.propertyOwners,
+      propertyHouses: propertyHouses ?? this.propertyHouses,
       hasRolled: hasRolled ?? this.hasRolled,
       notificationMessage: notificationMessage ?? this.notificationMessage,
       pendingDiceRoll: pendingDiceRoll ?? this.pendingDiceRoll,
       isAnimatingDice: isAnimatingDice ?? this.isAnimatingDice,
       canRollAgain: canRollAgain ?? this.canRollAgain,
+      auctionPropertyIndex: auctionPropertyIndex ?? this.auctionPropertyIndex,
+      auctionBids: auctionBids ?? this.auctionBids,
+      auctionCurrentBidderId: auctionCurrentBidderId ?? this.auctionCurrentBidderId,
     );
   }
 
@@ -62,5 +79,5 @@ class GameState extends Equatable {
   Map<String, dynamic> toJson() => _$GameStateToJson(this);
 
   @override
-  List<Object?> get props => [players, currentPlayerId, phase, lastDiceRoll, propertyOwners, hasRolled, notificationMessage, pendingDiceRoll, isAnimatingDice, canRollAgain];
+  List<Object?> get props => [players, currentPlayerId, phase, lastDiceRoll, propertyOwners, propertyHouses, hasRolled, notificationMessage, pendingDiceRoll, isAnimatingDice, canRollAgain, auctionPropertyIndex, auctionBids, auctionCurrentBidderId];
 }
