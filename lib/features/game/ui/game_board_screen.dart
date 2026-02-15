@@ -14,6 +14,7 @@ import 'widgets/board_widget.dart';
 import 'widgets/chat_widget.dart';
 import 'widgets/animated_balance_text.dart';
 import 'property_management_screen.dart';
+import 'game_stats_screen.dart';
 
 class GameBoardScreen extends ConsumerStatefulWidget {
   const GameBoardScreen({super.key});
@@ -238,6 +239,24 @@ class _GameBoardScreenState extends ConsumerState<GameBoardScreen>
                 child: TurnActionPanel(pulseAnimation: _pulseAnimation, compact: true),
               ),
           ],
+        ),
+        
+        // #25: Stats Button - Floating
+        Positioned(
+          right: 12,
+          bottom: networkState.myPlayerId == gameState.currentPlayerId ? 180 : 92,
+          child: GestureDetector(
+            onTap: () => Navigator.push(context, MaterialPageRoute(builder: (_) => const GameStatsScreen())),
+            child: Container(
+              padding: const EdgeInsets.all(10),
+              decoration: BoxDecoration(
+                gradient: LinearGradient(colors: [Colors.deepPurple, Colors.purpleAccent.shade700]),
+                borderRadius: BorderRadius.circular(14),
+                boxShadow: AppShadows.glowShadow(Colors.deepPurple),
+              ),
+              child: const Icon(Icons.leaderboard, color: Colors.white, size: 20),
+            ),
+          ),
         ),
         
         // #21: Property Management Button - Floating
