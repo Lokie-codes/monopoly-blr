@@ -184,7 +184,7 @@ class _MonopolyBoardWidgetState extends State<MonopolyBoardWidget>
                   child: Text(
                     'MONOPOLY',
                     style: TextStyle(
-                      fontSize: size * 0.06,
+                      fontSize: size * 0.07,
                       fontWeight: FontWeight.w800,
                       color: Colors.white,
                       letterSpacing: 4,
@@ -201,7 +201,7 @@ class _MonopolyBoardWidgetState extends State<MonopolyBoardWidget>
                   child: Text(
                     'BANGALORE',
                     style: TextStyle(
-                      fontSize: size * 0.03,
+                      fontSize: size * 0.035,
                       fontWeight: FontWeight.w600,
                       color: AppColors.accentGold.withOpacity(0.8),
                       letterSpacing: 3,
@@ -431,10 +431,10 @@ class _MonopolyBoardWidgetState extends State<MonopolyBoardWidget>
             data.name.toUpperCase(),
             textAlign: TextAlign.center,
             style: TextStyle(
-              fontSize: unit * 0.12,
-              fontWeight: FontWeight.w700,
+              fontSize: unit * 0.14,
+              fontWeight: FontWeight.w800,
               color: Colors.white,
-              letterSpacing: 0.3,
+              letterSpacing: 0.5,
             ),
             maxLines: 2,
             overflow: TextOverflow.ellipsis,
@@ -455,12 +455,12 @@ class _MonopolyBoardWidgetState extends State<MonopolyBoardWidget>
               data.name,
               textAlign: TextAlign.center,
               style: TextStyle(
-                fontSize: unit * 0.11,
-                fontWeight: FontWeight.w600,
+                fontSize: unit * 0.13,
+                fontWeight: FontWeight.w700,
                 color: Colors.black87,
-                height: 1.1,
+                height: 1.0,
               ),
-              maxLines: 2,
+              maxLines: 3,
               overflow: TextOverflow.ellipsis,
             ),
           ),
@@ -478,7 +478,7 @@ class _MonopolyBoardWidgetState extends State<MonopolyBoardWidget>
               child: Text(
                 '₹${data.price}',
                 style: TextStyle(
-                  fontSize: unit * 0.095,
+                  fontSize: unit * 0.11,
                   fontWeight: FontWeight.w700,
                   color: Colors.black54,
                 ),
