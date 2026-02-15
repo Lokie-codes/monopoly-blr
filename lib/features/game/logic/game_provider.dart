@@ -11,6 +11,7 @@ import '../domain/models/game_state.dart';
 import '../domain/models/player.dart';
 import '../domain/models/board_data.dart';
 import '../domain/models/chat_message.dart';
+import '../domain/models/trade_offer.dart';
 import '../../../core/services/app_logger.dart';
 
 // State to track networking status
@@ -827,6 +828,94 @@ class NetworkNotifier extends Notifier<NetworkState> {
       }
   }
 
+  // #7e: Propose a trade to another player
+  void processTradeOffer(TradeOffer offer) {
+    final current = ref.read(gameStateProvider);
+    // Validate: from player owns offered properties, to player owns requested properties
+    for (final idx in offer.offeredPropertyIndices) {
+      if (current.propertyOwners[idx] != offer.fromPlayerId) return;
+    }
+    for (final idx in offer.requestedPropertyIndices) {
+      if (current.propertyOwners[idx] != offer.toPlayerId) return;
+    }
+    // Check cash availability
+    if (offer.cashOffer > 0) {
+      final from = current.players.firstWhere((p) => p.id == offer.fromPlayerId);
+      if (from.balance < offer.cashOffer) return;
+    } else if (offer.cashOffer < 0) {
+      final to = current.players.firstWhere((p) => p.id == offer.toPlayerId);
+      if (to.balance < -offer.cashOffer) return;
+    }
+
+    final fromName = current.players.firstWhere((p) => p.id == offer.fromPlayerId).name;
+    final toName = current.players.firstWhere((p) => p.id == offer.toPlayerId).name;
+    final newState = current.copyWith(
+      pendingTradeOffer: offer,
+      notificationMessage: "📦 $fromName proposed a trade to $toName",
+    );
+    ref.read(chatProvider.notifier).addActionMessage("$fromName proposed a trade to $toName");
+    ref.read(gameStateProvider.notifier).updateState(newState);
+    _broadcastState(newState);
+  }
+
+  // #7e: Accept a pending trade
+  void processAcceptTrade(String acceptingPlayerId) {
+    final current = ref.read(gameStateProvider);
+    final offer = current.pendingTradeOffer;
+    if (offer == null || offer.toPlayerId != acceptingPlayerId) return;
+
+    final fromIdx = current.players.indexWhere((p) => p.id == offer.fromPlayerId);
+    final toIdx = current.players.indexWhere((p) => p.id == offer.toPlayerId);
+    if (fromIdx == -1 || toIdx == -1) return;
+
+    final updatedPlayers = List<Player>.from(current.players);
+    final updatedOwners = Map<int, String>.from(current.propertyOwners);
+
+    // Transfer properties
+    for (final idx in offer.offeredPropertyIndices) {
+      updatedOwners[idx] = offer.toPlayerId;
+    }
+    for (final idx in offer.requestedPropertyIndices) {
+      updatedOwners[idx] = offer.fromPlayerId;
+    }
+
+    // Transfer cash
+    if (offer.cashOffer != 0) {
+      updatedPlayers[fromIdx] = updatedPlayers[fromIdx].copyWith(
+        balance: updatedPlayers[fromIdx].balance - offer.cashOffer,
+      );
+      updatedPlayers[toIdx] = updatedPlayers[toIdx].copyWith(
+        balance: updatedPlayers[toIdx].balance + offer.cashOffer,
+      );
+    }
+
+    final fromName = current.players[fromIdx].name;
+    final toName = current.players[toIdx].name;
+    final newState = current.copyWith(
+      players: updatedPlayers,
+      propertyOwners: updatedOwners,
+      notificationMessage: "✅ Trade completed: $fromName ↔ $toName",
+    );
+    ref.read(chatProvider.notifier).addActionMessage("Trade completed between $fromName and $toName!");
+    ref.read(gameStateProvider.notifier).updateState(newState);
+    _broadcastState(newState);
+  }
+
+  // #7e: Reject a pending trade
+  void processRejectTrade(String rejectingPlayerId) {
+    final current = ref.read(gameStateProvider);
+    final offer = current.pendingTradeOffer;
+    if (offer == null || offer.toPlayerId != rejectingPlayerId) return;
+
+    final rejecterName = current.players.firstWhere((p) => p.id == rejectingPlayerId).name;
+    final newState = current.copyWith(
+      notificationMessage: "❌ $rejecterName rejected the trade",
+    );
+    ref.read(chatProvider.notifier).addActionMessage("$rejecterName rejected the trade");
+    ref.read(gameStateProvider.notifier).updateState(newState);
+    _broadcastState(newState);
+  }
+
   void processEndTurn(String playerId) {
       final current = ref.read(gameStateProvider);
       
@@ -842,7 +931,7 @@ class NetworkNotifier extends Notifier<NetworkState> {
           );
           ref.read(gameStateProvider.notifier).updateState(newState);
           _broadcastState(newState);
-    _startTurnTimer(); // #6: Start timeout for next player's turn
+    _startTurnTimer();
           ref.read(chatProvider.notifier).addActionMessage('Roll again!');
           return;
       }
@@ -856,10 +945,30 @@ class NetworkNotifier extends Notifier<NetworkState> {
           ? "${current.notificationMessage} | Next: ${nextPlayer.name}"
           : "Turn: ${nextPlayer.name}";
 
+      // #9: Increment turn counter
+      final newTurnCount = current.turnCount + 1;
+
+      // #9: Timed win — after 100 turns, richest player wins
+      if (newTurnCount >= 100) {
+        final richest = List<Player>.from(current.players)..sort((a, b) => b.balance.compareTo(a.balance));
+        final winner = richest.first;
+        final endState = current.copyWith(
+          phase: GamePhase.ended,
+          turnCount: newTurnCount,
+          notificationMessage: "🏆 Game Over! ${winner.name} wins with ₹${winner.balance}!",
+        );
+        ref.read(chatProvider.notifier).addActionMessage("Game Over after $newTurnCount turns! ${winner.name} wins with ₹${winner.balance}!");
+        ref.read(gameStateProvider.notifier).updateState(endState);
+        _broadcastState(endState);
+        _cancelTurnTimer();
+        return;
+      }
+
       final newState = current.copyWith(
           currentPlayerId: nextPlayerId,
-          hasRolled: false, // Reset for next player
+          hasRolled: false,
           notificationMessage: turnMessage,
+          turnCount: newTurnCount,
       );
       
       ref.read(gameStateProvider.notifier).updateState(newState);

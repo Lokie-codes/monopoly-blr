@@ -46,6 +46,10 @@ GameState _$GameStateFromJson(Map<String, dynamic> json) => GameState(
       ) ??
       const {},
   auctionCurrentBidderId: json['auctionCurrentBidderId'] as String?,
+  pendingTradeOffer: json['pendingTradeOffer'] == null
+      ? null
+      : TradeOffer.fromJson(json['pendingTradeOffer'] as Map<String, dynamic>),
+  turnCount: (json['turnCount'] as num?)?.toInt() ?? 0,
 );
 
 Map<String, dynamic> _$GameStateToJson(GameState instance) => <String, dynamic>{
@@ -67,6 +71,8 @@ Map<String, dynamic> _$GameStateToJson(GameState instance) => <String, dynamic>{
   'auctionPropertyIndex': instance.auctionPropertyIndex,
   'auctionBids': instance.auctionBids,
   'auctionCurrentBidderId': instance.auctionCurrentBidderId,
+  'pendingTradeOffer': instance.pendingTradeOffer?.toJson(),
+  'turnCount': instance.turnCount,
 };
 
 const _$GamePhaseEnumMap = {

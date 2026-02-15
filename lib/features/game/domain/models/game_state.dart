@@ -1,6 +1,7 @@
 import 'package:equatable/equatable.dart';
 import 'package:json_annotation/json_annotation.dart';
 import 'player.dart';
+import 'trade_offer.dart';
 
 part 'game_state.g.dart';
 
@@ -23,6 +24,10 @@ class GameState extends Equatable {
   final int? auctionPropertyIndex;
   final Map<String, int> auctionBids; // playerId -> bid amount
   final String? auctionCurrentBidderId;
+  // #7e: Pending trade
+  final TradeOffer? pendingTradeOffer;
+  // #9: Turn counter for timed win condition
+  final int turnCount;
   
   const GameState({
     this.players = const [],
@@ -39,6 +44,8 @@ class GameState extends Equatable {
     this.auctionPropertyIndex,
     this.auctionBids = const {},
     this.auctionCurrentBidderId,
+    this.pendingTradeOffer,
+    this.turnCount = 0,
   });
 
   GameState copyWith({
@@ -56,6 +63,8 @@ class GameState extends Equatable {
     int? auctionPropertyIndex,
     Map<String, int>? auctionBids,
     String? auctionCurrentBidderId,
+    TradeOffer? pendingTradeOffer,
+    int? turnCount,
   }) {
     return GameState(
       players: players ?? this.players,
@@ -72,6 +81,8 @@ class GameState extends Equatable {
       auctionPropertyIndex: auctionPropertyIndex ?? this.auctionPropertyIndex,
       auctionBids: auctionBids ?? this.auctionBids,
       auctionCurrentBidderId: auctionCurrentBidderId ?? this.auctionCurrentBidderId,
+      pendingTradeOffer: pendingTradeOffer ?? this.pendingTradeOffer,
+      turnCount: turnCount ?? this.turnCount,
     );
   }
 
@@ -79,5 +90,5 @@ class GameState extends Equatable {
   Map<String, dynamic> toJson() => _$GameStateToJson(this);
 
   @override
-  List<Object?> get props => [players, currentPlayerId, phase, lastDiceRoll, propertyOwners, propertyHouses, hasRolled, notificationMessage, pendingDiceRoll, isAnimatingDice, canRollAgain, auctionPropertyIndex, auctionBids, auctionCurrentBidderId];
+  List<Object?> get props => [players, currentPlayerId, phase, lastDiceRoll, propertyOwners, propertyHouses, hasRolled, notificationMessage, pendingDiceRoll, isAnimatingDice, canRollAgain, auctionPropertyIndex, auctionBids, auctionCurrentBidderId, pendingTradeOffer, turnCount];
 }

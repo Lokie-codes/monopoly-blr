@@ -5,6 +5,7 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 import '../logic/game_provider.dart';
 import 'package:monopoly_blr/features/game/domain/models/game_state.dart';
 import 'package:monopoly_blr/features/game/domain/models/board_data.dart';
+import 'package:monopoly_blr/features/game/domain/models/trade_offer.dart';
 import '../../../core/theme/app_theme.dart';
 import '../../../core/widgets/glass_card.dart';
 import '../../../core/widgets/gradient_button.dart';
@@ -174,6 +175,49 @@ class _GameBoardScreenState extends ConsumerState<GameBoardScreen>
             // Notification
             if (gameState.notificationMessage != null && gameState.notificationMessage!.isNotEmpty)
               _buildMobileNotification(gameState.notificationMessage!),
+            
+            // #7e: Pending trade accept/reject banner
+            if (gameState.pendingTradeOffer != null && gameState.pendingTradeOffer!.toPlayerId == networkState.myPlayerId)
+              Consumer(builder: (context, ref, _) {
+                final offer = gameState.pendingTradeOffer!;
+                final offeredNames = offer.offeredPropertyIndices.map((i) => monopolyBoard.firstWhere((s) => s.index == i).name).join(', ');
+                final requestedNames = offer.requestedPropertyIndices.map((i) => monopolyBoard.firstWhere((s) => s.index == i).name).join(', ');
+                final fromName = gameState.players.firstWhere((p) => p.id == offer.fromPlayerId).name;
+                return Container(
+                  margin: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
+                  padding: const EdgeInsets.all(10),
+                  decoration: BoxDecoration(
+                    color: Colors.amber.withOpacity(0.15),
+                    borderRadius: BorderRadius.circular(12),
+                    border: Border.all(color: Colors.amber.withOpacity(0.4)),
+                  ),
+                  child: Column(
+                    crossAxisAlignment: CrossAxisAlignment.start,
+                    children: [
+                      Text('📦 Trade from $fromName', style: const TextStyle(color: Colors.amber, fontSize: 13, fontWeight: FontWeight.bold)),
+                      if (offeredNames.isNotEmpty) Text('Offers: $offeredNames', style: const TextStyle(color: Colors.white70, fontSize: 11)),
+                      if (requestedNames.isNotEmpty) Text('Wants: $requestedNames', style: const TextStyle(color: Colors.white70, fontSize: 11)),
+                      if (offer.cashOffer != 0) Text('Cash: ${offer.cashOffer > 0 ? "+₹${offer.cashOffer}" : "-₹${-offer.cashOffer}"}', style: const TextStyle(color: Colors.white70, fontSize: 11)),
+                      const SizedBox(height: 6),
+                      Row(
+                        children: [
+                          Expanded(child: ElevatedButton.icon(
+                            style: ElevatedButton.styleFrom(backgroundColor: Colors.green, padding: const EdgeInsets.symmetric(vertical: 6)),
+                            onPressed: () => ref.read(networkProvider.notifier).processAcceptTrade(networkState.myPlayerId!),
+                            icon: const Icon(Icons.check, size: 16), label: const Text('Accept', style: TextStyle(fontSize: 12)),
+                          )),
+                          const SizedBox(width: 8),
+                          Expanded(child: ElevatedButton.icon(
+                            style: ElevatedButton.styleFrom(backgroundColor: Colors.red.shade700, padding: const EdgeInsets.symmetric(vertical: 6)),
+                            onPressed: () => ref.read(networkProvider.notifier).processRejectTrade(networkState.myPlayerId!),
+                            icon: const Icon(Icons.close, size: 16), label: const Text('Reject', style: TextStyle(fontSize: 12)),
+                          )),
+                        ],
+                      ),
+                    ],
+                  ),
+                );
+              }),
             
             // Game Board
             Expanded(
@@ -828,6 +872,33 @@ class _GameBoardScreenState extends ConsumerState<GameBoardScreen>
                     ),
                     if (player.isJailed)
                       Icon(Icons.lock, color: AppColors.jailOrange, size: 18),
+                    if (!isMe && gameState.phase == GamePhase.playing)
+                      Padding(
+                        padding: const EdgeInsets.only(left: 6),
+                        child: InkWell(
+                          onTap: () {
+                            Navigator.pop(context);
+                            _showTradeDialog(context, ref, gameState, networkState, player.id, player.name);
+                          },
+                          borderRadius: BorderRadius.circular(8),
+                          child: Container(
+                            padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
+                            decoration: BoxDecoration(
+                              color: Colors.amber.withOpacity(0.15),
+                              borderRadius: BorderRadius.circular(8),
+                              border: Border.all(color: Colors.amber.withOpacity(0.3)),
+                            ),
+                            child: const Row(
+                              mainAxisSize: MainAxisSize.min,
+                              children: [
+                                Icon(Icons.swap_horiz, color: Colors.amber, size: 14),
+                                SizedBox(width: 3),
+                                Text('Trade', style: TextStyle(color: Colors.amber, fontSize: 10, fontWeight: FontWeight.w600)),
+                              ],
+                            ),
+                          ),
+                        ),
+                      ),
                     if (isTurn)
                       Container(
                         padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
@@ -848,6 +919,86 @@ class _GameBoardScreenState extends ConsumerState<GameBoardScreen>
                 ),
               );
             }),
+          ],
+        ),
+      ),
+    );
+  }
+
+  // #7e: Show trade proposal dialog
+  void _showTradeDialog(BuildContext dialogContext, WidgetRef ref, GameState gameState, NetworkState networkState, String targetPlayerId, String targetName) {
+    final myId = networkState.myPlayerId!;
+    final myProperties = monopolyBoard.where((s) => gameState.propertyOwners[s.index] == myId && s.isBuyable).toList();
+    final theirProperties = monopolyBoard.where((s) => gameState.propertyOwners[s.index] == targetPlayerId && s.isBuyable).toList();
+
+    int? selectedOffer;
+    int? selectedRequest;
+
+    showDialog(
+      context: dialogContext,
+      builder: (ctx) => StatefulBuilder(
+        builder: (ctx, setDialogState) => AlertDialog(
+          backgroundColor: const Color(0xFF1A1A2E),
+          shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(16)),
+          title: Text('Trade with $targetName', style: const TextStyle(color: Colors.white, fontSize: 16)),
+          content: SingleChildScrollView(
+            child: Column(
+              mainAxisSize: MainAxisSize.min,
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                const Text('You offer:', style: TextStyle(color: Colors.amber, fontSize: 13, fontWeight: FontWeight.w600)),
+                const SizedBox(height: 6),
+                if (myProperties.isEmpty)
+                  const Text('No properties to offer', style: TextStyle(color: Colors.white38, fontSize: 12))
+                else
+                  Wrap(
+                    spacing: 6, runSpacing: 6,
+                    children: myProperties.map((p) => ChoiceChip(
+                      label: Text(p.name, style: TextStyle(fontSize: 11, color: selectedOffer == p.index ? Colors.white : Colors.white70)),
+                      selected: selectedOffer == p.index,
+                      selectedColor: Colors.amber.shade700,
+                      backgroundColor: const Color(0xFF2A2A4A),
+                      onSelected: (v) => setDialogState(() => selectedOffer = v ? p.index : null),
+                    )).toList(),
+                  ),
+                const SizedBox(height: 14),
+                const Text('You request:', style: TextStyle(color: Colors.greenAccent, fontSize: 13, fontWeight: FontWeight.w600)),
+                const SizedBox(height: 6),
+                if (theirProperties.isEmpty)
+                  const Text('No properties to request', style: TextStyle(color: Colors.white38, fontSize: 12))
+                else
+                  Wrap(
+                    spacing: 6, runSpacing: 6,
+                    children: theirProperties.map((p) => ChoiceChip(
+                      label: Text(p.name, style: TextStyle(fontSize: 11, color: selectedRequest == p.index ? Colors.white : Colors.white70)),
+                      selected: selectedRequest == p.index,
+                      selectedColor: Colors.green.shade700,
+                      backgroundColor: const Color(0xFF2A2A4A),
+                      onSelected: (v) => setDialogState(() => selectedRequest = v ? p.index : null),
+                    )).toList(),
+                  ),
+              ],
+            ),
+          ),
+          actions: [
+            TextButton(
+              onPressed: () => Navigator.pop(ctx),
+              child: const Text('Cancel', style: TextStyle(color: Colors.white54)),
+            ),
+            ElevatedButton(
+              style: ElevatedButton.styleFrom(backgroundColor: Colors.amber.shade700),
+              onPressed: (selectedOffer != null || selectedRequest != null) ? () {
+                final offer = TradeOffer(
+                  fromPlayerId: myId,
+                  toPlayerId: targetPlayerId,
+                  offeredPropertyIndices: selectedOffer != null ? [selectedOffer!] : [],
+                  requestedPropertyIndices: selectedRequest != null ? [selectedRequest!] : [],
+                );
+                ref.read(networkProvider.notifier).processTradeOffer(offer);
+                Navigator.pop(ctx);
+              } : null,
+              child: const Text('Propose Trade'),
+            ),
           ],
         ),
       ),
