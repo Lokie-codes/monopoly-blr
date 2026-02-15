@@ -151,10 +151,11 @@ void main() {
 
       var state = container.read(gameStateProvider);
       var player = state.players.firstWhere((p) => p.id == 'P0');
-      print("Jail Escape (Rolled 3): Position=${player.position}, IsJailed=${player.isJailed}");
+      print("Jail Escape (Rolled 3): Position=${player.position}, IsJailed=${player.isJailed}, JailTurns=${player.jailTurns}");
       expect(player.isJailed, isTrue, reason: "Player should still be jailed after rolling 3");
+      expect(player.jailTurns, 1, reason: "Player should have 1 jail turn recorded");
 
-      // 2. Roll 6
+      // 2. Roll 6 — must use the updated player state which has jailTurns=1
       gameNotifier.updateState(container.read(gameStateProvider).copyWith(
           pendingDiceRoll: [6],
           isAnimatingDice: true,
@@ -164,7 +165,7 @@ void main() {
 
       state = container.read(gameStateProvider);
       player = state.players.firstWhere((p) => p.id == 'P0');
-      print("Jail Escape (Rolled 6): Position=${player.position}, IsJailed=${player.isJailed}");
+      print("Jail Escape (Rolled 6): Position=${player.position}, IsJailed=${player.isJailed}, JailTurns=${player.jailTurns}");
       // Note: In current logic, rolling 6 in jail escapes AND moves? 
       // Let's check: 7 + 6 = 13
       expect(player.isJailed, isFalse, reason: "Player should be free after rolling 6");

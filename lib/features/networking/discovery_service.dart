@@ -1,6 +1,7 @@
 import 'dart:async';
 import 'dart:convert';
 import 'dart:io';
+import '../../core/services/app_logger.dart';
 import 'package:flutter_multicast_lock/flutter_multicast_lock.dart';
 
 class UdpDiscoveryService {
@@ -26,7 +27,7 @@ class UdpDiscoveryService {
       final message = jsonEncode({'type': 'DISCOVERY', 'name': roomName, 'port': 45455});
       _socket?.send(utf8.encode(message), InternetAddress('255.255.255.255'), discoveryPort);
     });
-    print("Started broadcasting on UDP");
+    AppLogger.info("Started broadcasting on UDP");
   }
 
   Future<void> startScanning() async {
@@ -54,7 +55,7 @@ class UdpDiscoveryService {
         }
       }
     });
-    print("Started scanning on UDP port $discoveryPort");
+    AppLogger.info("Started scanning on UDP port $discoveryPort");
   }
 
   void stop() {

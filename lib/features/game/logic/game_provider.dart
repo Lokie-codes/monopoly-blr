@@ -1,3 +1,4 @@
+import 'dart:async';
 import 'dart:math';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:uuid/uuid.dart';
@@ -10,7 +11,7 @@ import '../domain/models/game_state.dart';
 import '../domain/models/player.dart';
 import '../domain/models/board_data.dart';
 import '../domain/models/chat_message.dart';
-import '../../../core/services/sound_service.dart';
+import '../../../core/services/app_logger.dart';
 
 // State to track networking status
 class NetworkState {
@@ -121,9 +122,13 @@ class GameNotifier extends Notifier<GameState> {
 }
 
 class NetworkNotifier extends Notifier<NetworkState> {
+  // #10: Shuffled card decks
+  late final CardDeck _chanceDeck = CardDeck(chanceCards);
+  late final CardDeck _communityDeck = CardDeck(communityChestCards);
   UdpDiscoveryService? _discovery;
   SocketServer? _server;
   SocketClient? _client;
+  Timer? _turnTimer; // #6: Server-side turn timeout
 
   @override
   NetworkState build() {
@@ -138,6 +143,7 @@ class NetworkNotifier extends Notifier<NetworkState> {
     _discovery = null;
     _server = null;
     _client = null;
+    _cancelTurnTimer();
     
     state = NetworkState();
     ref.read(gameStateProvider.notifier).updateState(const GameState());
@@ -163,7 +169,14 @@ class NetworkNotifier extends Notifier<NetworkState> {
       _server = SocketServer(onMessageReceived: _handleServerMessage);
       await _server!.start();
 
-      final hostId = const Uuid().v4();
+      // Persist host ID for reconnection support
+      final prefs = await SharedPreferences.getInstance();
+      String? hostId = prefs.getString('monopoly_host_player_id');
+      if (hostId == null) {
+        hostId = const Uuid().v4();
+        await prefs.setString('monopoly_host_player_id', hostId);
+      }
+      
       final hostPlayer = Player(
         id: hostId, 
         name: playerName,
@@ -250,7 +263,7 @@ class NetworkNotifier extends Notifier<NetworkState> {
         final chatMessage = ChatMessage.fromJson(msg.payload!);
         ref.read(chatProvider.notifier).addMessage(chatMessage);
       } catch (e) {
-        print('Error parsing chat message: $e');
+        AppLogger.error('parsing chat message: $e');
       }
     }
   }
@@ -309,12 +322,8 @@ class NetworkNotifier extends Notifier<NetworkState> {
     final newState = current.copyWith(phase: GamePhase.playing);
     
     ref.read(gameStateProvider.notifier).updateState(newState);
-    
-    ref.read(gameStateProvider.notifier).updateState(newState);
     _broadcastState(newState);
-    
-    // Play game start sound
-    SoundService().play(SoundEffect.gameStart);
+  _startTurnTimer(); // #6: Start timeout for first turn
     
     // System message
     ref.read(chatProvider.notifier).addActionMessage('Game has started!');
@@ -450,9 +459,6 @@ class NetworkNotifier extends Notifier<NetworkState> {
      
      final player = current.players.firstWhere((p) => p.id == playerId, orElse: () => current.players.first);
      
-     // Play dice roll sound
-     SoundService().play(SoundEffect.diceRoll);
-     
      // Action message for roll
      ref.read(chatProvider.notifier).addActionMessage('${player.name} rolled a $die1');
      
@@ -477,19 +483,46 @@ class NetworkNotifier extends Notifier<NetworkState> {
      
      final player = current.players.firstWhere((p) => p.id == playerId, orElse: () => current.players.first);
      
-     // JAIL LOGIC: Pre-move
+     // JAIL LOGIC: Pre-move (#9: 3-turn jail limit)
      if (player.isJailed) {
-         if (die1 == 6) {
+         final turnsInJail = player.jailTurns + 1;
+         
+         if (player.hasGetOutOfJailFreeCard) {
+             // Use Get Out of Jail Free card
+             ref.read(chatProvider.notifier).addActionMessage('${player.name} used Get Out of Jail Free card!');
+         } else if (die1 == 6) {
              // Escaped on a 6!
              ref.read(chatProvider.notifier).addActionMessage('${player.name} escaped from jail!');
-         } else {
-             // Failed to escape
+         } else if (turnsInJail >= 3) {
+             // #9: Auto-pay bail after 3 turns in jail
+             final updatedPlayers = current.players.map((p) => p.id == playerId 
+                 ? p.copyWith(balance: p.balance - 150, isJailed: false, jailTurns: 0) 
+                 : p).toList();
              final newState = current.copyWith(
+                 players: updatedPlayers,
                  lastDiceRoll: [die1],
                  pendingDiceRoll: const [],
                  isAnimatingDice: false,
                  hasRolled: true,
-                 notificationMessage: "${player.name} stayed in Jail (Need a 6)",
+                 notificationMessage: "${player.name} forced to pay bail after 3 turns",
+             );
+             ref.read(chatProvider.notifier).addActionMessage('${player.name} spent 3 turns in jail, auto-paid bail');
+             ref.read(gameStateProvider.notifier).updateState(newState);
+             _broadcastState(newState);
+             processEndTurn(playerId);
+             return;
+         } else {
+             // Failed to escape, increment jail turns
+             final updatedPlayers = current.players.map((p) => p.id == playerId 
+                 ? p.copyWith(jailTurns: turnsInJail) 
+                 : p).toList();
+             final newState = current.copyWith(
+                 players: updatedPlayers,
+                 lastDiceRoll: [die1],
+                 pendingDiceRoll: const [],
+                 isAnimatingDice: false,
+                 hasRolled: true,
+                 notificationMessage: "${player.name} stayed in Jail (Turn $turnsInJail/3)",
              );
              ref.read(gameStateProvider.notifier).updateState(newState);
              _broadcastState(newState);
@@ -499,7 +532,7 @@ class NetworkNotifier extends Notifier<NetworkState> {
      }
      
      // Resolve any jail status change (escape) for calculations
-     final playerForMove = player.isJailed ? player.copyWith(isJailed: false) : player;
+     final playerForMove = player.isJailed ? player.copyWith(isJailed: false, jailTurns: 0, hasGetOutOfJailFreeCard: false) : player;
 
      int newPos = (playerForMove.position + total) % 28;
      
@@ -510,17 +543,16 @@ class NetworkNotifier extends Notifier<NetworkState> {
          newBalance += 200;
          passGoMessage = "${player.name} Passed Go! (+\$200)";
          ref.read(chatProvider.notifier).addActionMessage('${player.name} passed GO! Collected \$200');
-         SoundService().play(SoundEffect.passGo);
      }
      
      // GO TO JAIL Logic (Land on index 21 in 28-space board)
      bool justJailed = false;
+      bool hasGetOutOfJailFreeCard = player.hasGetOutOfJailFreeCard;
      if (newPos == 21) {
          newPos = 7; // Jail is at index 7
          justJailed = true;
          passGoMessage = "${player.name} sent to Jail!";
          ref.read(chatProvider.notifier).addActionMessage('${player.name} was sent to jail!');
-         SoundService().play(SoundEffect.goToJail);
      }
 
      // CARD SYSTEM LOGIC
@@ -529,15 +561,15 @@ class NetworkNotifier extends Notifier<NetworkState> {
      if (!justJailed) {
       final spaceData = monopolyBoard.firstWhere(
           (e) => e.index == newPos,
-          orElse: () => BoardSpaceData(index: newPos, name: "Unknown", type: "Corner")
+          orElse: () => BoardSpaceData(index: newPos, name: "Unknown", type: BoardSpaceType.corner)
       );
       final spaceType = spaceData.type;
       
-      if (['Chance', 'CommunityChest'].contains(spaceType)) {
-          final isChance = spaceType == 'Chance';
+      if (spaceType == BoardSpaceType.chance || spaceType == BoardSpaceType.communityChest) {
+          final isChance = spaceType == BoardSpaceType.chance;
           final cards = isChance ? chanceCards : communityChestCards;
           if (cards.isNotEmpty) {
-              final randomCard = cards[Random().nextInt(cards.length)];
+              final randomCard = isChance ? _chanceDeck.draw() : _communityDeck.draw();
              
              cardMessage = "Drew ${isChance ? 'Chance' : 'Community Chest'}: ${randomCard.text}";
              ref.read(chatProvider.notifier).addActionMessage(cardMessage);
@@ -548,7 +580,10 @@ class NetworkNotifier extends Notifier<NetworkState> {
              } else if (randomCard.actionId == 'go_to_jail') {
                  newPos = 7; // Jail is at index 7
                  justJailed = true;
-             } else if (randomCard.actionId == 'advance_to') {
+             } else if (randomCard.actionId == 'get_out_of_jail_free') {
+                  // #7c: Player receives Get Out of Jail Free card
+                  hasGetOutOfJailFreeCard = true;
+              } else if (randomCard.actionId == 'advance_to') {
                  int target = randomCard.value!;
                  if (target < newPos) {
                      // Wrapped around (Advance to Go or similar)
@@ -564,7 +599,8 @@ class NetworkNotifier extends Notifier<NetworkState> {
      final updatedPlayer = playerForMove.copyWith(
         position: newPos, 
         balance: newBalance, 
-        isJailed: justJailed
+        isJailed: justJailed,
+         hasGetOutOfJailFreeCard: hasGetOutOfJailFreeCard
      );
      final updatedPlayers = current.players.map((p) => p.id == playerId ? updatedPlayer : p).toList();
      
@@ -581,11 +617,27 @@ class NetworkNotifier extends Notifier<NetworkState> {
         // PAY RENT
         final propertyData = monopolyBoard.firstWhere(
             (e) => e.index == landedPropertyId,
-            orElse: () => BoardSpaceData(index: -1, name: "", type: "Unknown")
+            orElse: () => BoardSpaceData(index: -1, name: "", type: BoardSpaceType.corner)
         );
         
-        int rentAmount = (propertyData.price != null) ? (propertyData.price! * 0.1).ceil() : 0;
-        if (rentAmount == 0 && propertyData.type == "Property") rentAmount = 10;
+        int rentAmount;
+         // #7a: Railroad rent scaling (25 per railroad owned)
+         if (propertyData.type == BoardSpaceType.railroad) {
+             final railroadsOwned = monopolyBoard.where((s) => s.type == BoardSpaceType.railroad && current.propertyOwners[s.index] == ownerId).length;
+             rentAmount = 25 * railroadsOwned;
+         // #7a: Utility rent scaling (4x or 10x dice roll)
+         } else if (propertyData.type == BoardSpaceType.utility) {
+             final utilitiesOwned = monopolyBoard.where((s) => s.type == BoardSpaceType.utility && current.propertyOwners[s.index] == ownerId).length;
+             rentAmount = total * (utilitiesOwned >= 2 ? 10 : 4);
+         } else {
+             rentAmount = propertyData.baseRent ?? ((propertyData.price != null) ? (propertyData.price! * 0.1).ceil() : 10);
+         }
+         // #8: Double rent if owner has all properties of same color group
+         if (propertyData.colorHex != null) {
+             final sameColorSpaces = monopolyBoard.where((s) => s.colorHex == propertyData.colorHex).toList();
+             final ownsAll = sameColorSpaces.every((s) => current.propertyOwners[s.index] == ownerId);
+             if (ownsAll) { rentAmount *= 2; }
+         }
 
         if (rentAmount > 0) {
             final payerIndex = tempPlayers.indexWhere((p) => p.id == playerId);
@@ -600,11 +652,11 @@ class NetworkNotifier extends Notifier<NetworkState> {
                 tempPlayers[payerIndex] = payer.copyWith(balance: newBalance);
                 tempPlayers[ownerIndex] = owner.copyWith(balance: owner.balance + rentAmount);
                 
-                systemMessage = "${payer.name} paid \$$rentAmount rent to ${owner.name}";
+                systemMessage = "${payer.name} paid Ã¢â€šÂ¹$rentAmount rent to ${owner.name}";
                 ref.read(chatProvider.notifier).addActionMessage(systemMessage);
                 
                 // ELIMINATION CHECK
-                if (newBalance < -500) {
+                if (newBalance < 0) {
                    // Simple Implementation: Remove them from players list
                    tempPlayers.removeAt(payerIndex);
                    
@@ -665,22 +717,58 @@ class NetworkNotifier extends Notifier<NetworkState> {
      ref.read(gameStateProvider.notifier).updateState(newState);
      _broadcastState(newState);
 
-     // AUTO-END TURN CHECK: If nothing to buy, end turn
+     // #7b: Tax space handling
+      if (!justJailed) {
+          final taxSpace = monopolyBoard.firstWhere((s) => s.index == newPos, orElse: () => BoardSpaceData(index: -1, name: "", type: BoardSpaceType.corner));
+          if (taxSpace.type == BoardSpaceType.tax) {
+              final taxAmount = taxSpace.price ?? 0;
+              final payerIdx = tempPlayers.indexWhere((p) => p.id == playerId);
+              if (payerIdx != -1 && taxAmount > 0) {
+                  final payer = tempPlayers[payerIdx];
+                  tempPlayers[payerIdx] = payer.copyWith(balance: payer.balance - taxAmount);
+                  systemMessage = "${payer.name} paid ?$taxAmount ${taxSpace.name}";
+                  ref.read(chatProvider.notifier).addActionMessage(systemMessage);
+
+                  // Elimination check after tax
+                  if (payer.balance - taxAmount < 0) {
+                      tempPlayers.removeAt(payerIdx);
+                      final updatedOwners = Map<int, String>.from(current.propertyOwners);
+                      updatedOwners.removeWhere((k, v) => v == playerId);
+
+                      if (tempPlayers.length <= 1) {
+                          final winnerName = tempPlayers.isNotEmpty ? tempPlayers.first.name : "Nobody";
+                          final newState = current.copyWith(
+                              players: tempPlayers,
+                              propertyOwners: updatedOwners,
+                              phase: GamePhase.ended,
+                              notificationMessage: " $winnerName wins!",
+                          );
+                          ref.read(gameStateProvider.notifier).updateState(newState);
+                          _broadcastState(newState);
+                          _cancelTurnTimer();
+                          return;
+                      }
+                  }
+              }
+          }
+      }
+
+      // AUTO-END TURN CHECK: If nothing to buy, end turn
      final checkPlayer = newState.players.firstWhere((p) => p.id == playerId, orElse: () => updatedPlayer);
      final currentPos = checkPlayer.position;
      final propertyData = monopolyBoard.firstWhere(
        (e) => e.index == currentPos, 
-       orElse: () => BoardSpaceData(index: -1, name: "", type: "Unknown")
+       orElse: () => BoardSpaceData(index: -1, name: "", type: BoardSpaceType.corner)
      );
      
-     final isBuyable = ['Property', 'Railroad', 'Utility'].contains(propertyData.type);
+     final isBuyable = propertyData.isBuyable;
      final isUnowned = !newState.propertyOwners.containsKey(currentPos);
      final canAfford = checkPlayer.balance >= (propertyData.price ?? 0);
      
      bool canBuy = !justJailed && isBuyable && isUnowned && canAfford;
      
      // Check for roll again conditions: 6 or land on Chance
-     bool shouldRollAgain = (die1 == 6) || (propertyData.type == 'Chance');
+     bool shouldRollAgain = (die1 == 6) || (propertyData.type == BoardSpaceType.chance);
      
      final finalState = newState.copyWith(
        canRollAgain: shouldRollAgain && !justJailed,
@@ -705,11 +793,11 @@ class NetworkNotifier extends Notifier<NetworkState> {
       // Get Real Property Data
       final propertyData = monopolyBoard.firstWhere(
           (e) => e.index == propertyIndex, 
-          orElse: () => BoardSpaceData(index: -1, name: "", type: "Unknown")
+          orElse: () => BoardSpaceData(index: -1, name: "", type: BoardSpaceType.corner)
       );
       
       // Check if buyable
-      if (!['Property', 'Railroad', 'Utility'].contains(propertyData.type)) return;
+      if (!propertyData.isBuyable) return;
       if (propertyData.price == null) return;
       
       final int price = propertyData.price!;
@@ -732,10 +820,7 @@ class NetworkNotifier extends Notifier<NetworkState> {
               notificationMessage: "${player.name} bought ${propertyData.name}",
           );
           
-          // Play buy property sound
-          SoundService().play(SoundEffect.buyProperty);
-          
-          ref.read(chatProvider.notifier).addActionMessage("${player.name} bought ${propertyData.name} for \$${price}");
+          ref.read(chatProvider.notifier).addActionMessage("${player.name} bought ${propertyData.name} for Ã¢â€šÂ¹${price}");
           
           ref.read(gameStateProvider.notifier).updateState(newState);
           _broadcastState(newState);
@@ -757,6 +842,7 @@ class NetworkNotifier extends Notifier<NetworkState> {
           );
           ref.read(gameStateProvider.notifier).updateState(newState);
           _broadcastState(newState);
+    _startTurnTimer(); // #6: Start timeout for next player's turn
           ref.read(chatProvider.notifier).addActionMessage('Roll again!');
           return;
       }
@@ -799,14 +885,41 @@ class NetworkNotifier extends Notifier<NetworkState> {
 
           final newState = current.copyWith(
               players: updatedPlayers,
-              notificationMessage: "${player.name} paid \$150 to leave Jail",
+              notificationMessage: "${player.name} paid Ã¢â€šÂ¹150 to leave Jail",
           );
 
-          ref.read(chatProvider.notifier).addActionMessage("${player.name} paid \$150 to get out of jail");
+          ref.read(chatProvider.notifier).addActionMessage("${player.name} paid Ã¢â€šÂ¹150 to get out of jail");
 
           ref.read(gameStateProvider.notifier).updateState(newState);
           _broadcastState(newState);
       }
+  }
+
+  // #6: Server-side turn timeout
+  void _startTurnTimer() {
+    _cancelTurnTimer();
+    if (!state.isHost) return; // Only host enforces timeouts
+    _turnTimer = Timer(const Duration(seconds: 30), () {
+      final current = ref.read(gameStateProvider);
+      if (current.phase != GamePhase.playing) return;
+      final playerId = current.currentPlayerId;
+      if (playerId == null) return;
+      
+      if (!current.hasRolled) {
+        // Auto-roll for AFK player
+        ref.read(chatProvider.notifier).addActionMessage('Turn timer expired Ã¯Â¿Â½ auto-rolling');
+        processRollDiceForPlayer(playerId);
+      } else {
+        // Already rolled, auto-end turn
+        ref.read(chatProvider.notifier).addActionMessage('Turn timer expired Ã¯Â¿Â½ auto-ending turn');
+        processEndTurn(playerId);
+      }
+    });
+  }
+
+  void _cancelTurnTimer() {
+    _turnTimer?.cancel();
+    _turnTimer = null;
   }
 }
 

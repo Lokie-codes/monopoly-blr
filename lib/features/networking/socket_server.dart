@@ -2,6 +2,8 @@ import 'dart:convert';
 import 'dart:io';
 import 'dart:async';
 import 'protocol.dart';
+import '../../core/services/app_logger.dart';
+import 'network_utils.dart';
 
 class SocketServer {
   ServerSocket? _server;
@@ -12,10 +14,10 @@ class SocketServer {
 
   Future<void> start() async {
     _server = await ServerSocket.bind(InternetAddress.anyIPv4, 45455);
-    print('Server running on ${_server?.address.address}:45455');
+    AppLogger.info('Server running on ${_server?.address.address}:45455');
     
     _server?.listen((Socket client) {
-      print('New connection from ${client.remoteAddress.address}');
+      AppLogger.info('New connection from ${client.remoteAddress.address}');
       _clients.add(client);
       
       // Buffer to hold incoming data
@@ -41,7 +43,7 @@ class SocketServer {
                   final msg = NetworkMessage.fromJson(jsonDecode(jsonString));
                   onMessageReceived(msg, client);
                 } catch (e) {
-                  print('Error parsing message: $e');
+                  AppLogger.info('Error parsing message: $e');
                 }
              } else {
                 // Not enough data yet, wait for more
@@ -50,11 +52,11 @@ class SocketServer {
           }
         },
         onError: (e) {
-          print('Client error: $e');
+          AppLogger.info('Client error: $e');
           _scheduleRemoveClient(client);
         },
         onDone: () {
-          print('Client disconnected');
+          AppLogger.info('Client disconnected');
           _scheduleRemoveClient(client);
         },
       );
@@ -66,7 +68,7 @@ class SocketServer {
       final jsonString = jsonEncode(message.toJson());
       final bytes = utf8.encode(jsonString);
       final length = bytes.length;
-      final lengthBytes = _int32ToBytes(length);
+      final lengthBytes = int32ToBytes(length);
       
       // Create combined message bytes
       final fullMessage = [...lengthBytes, ...bytes];
@@ -78,23 +80,15 @@ class SocketServer {
           try {
             client.add(fullMessage);
           } catch (e) {
-            print('Error broadcasting to client: $e');
+            AppLogger.info('Error broadcasting to client: $e');
             _scheduleRemoveClient(client);
           }
       } 
     } catch (e) {
-      print("Broadcast encoding error: $e");
+      AppLogger.info("Broadcast encoding error: $e");
     }
   }
 
-  List<int> _int32ToBytes(int value) {
-    return [
-      (value >> 24) & 0xFF,
-      (value >> 16) & 0xFF,
-      (value >> 8) & 0xFF,
-      value & 0xFF,
-    ];
-  }
 
   void _scheduleRemoveClient(Socket client) {
     // Schedule removal to avoid concurrent modification

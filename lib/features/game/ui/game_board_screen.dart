@@ -1084,10 +1084,10 @@ class _TurnActionPanelState extends ConsumerState<TurnActionPanel> {
               final currentPos = myPlayer.position;
               final propertyData = monopolyBoard.firstWhere(
                 (e) => e.index == currentPos,
-                orElse: () => BoardSpaceData(index: -1, name: "", type: "Unknown"),
+                orElse: () => BoardSpaceData(index: -1, name: "", type: BoardSpaceType.corner),
               );
 
-              final isBuyable = ['Property', 'Railroad', 'Utility'].contains(propertyData.type);
+              final isBuyable = propertyData.isBuyable;
               final isUnowned = !gameState.propertyOwners.containsKey(currentPos);
               final canAfford = myPlayer.balance >= (propertyData.price ?? 0);
 
@@ -1096,9 +1096,37 @@ class _TurnActionPanelState extends ConsumerState<TurnActionPanel> {
                   text: 'BUY (₹${propertyData.price})',
                   icon: Icons.add_home,
                   onPressed: canAfford
-                      ? () {
-                          ref.read(networkProvider.notifier).buyProperty();
-                          ref.read(networkProvider.notifier).endTurn();
+                      ? () async {
+                          // #26: Confirmation dialog before purchase
+                          final confirmed = await showDialog<bool>(
+                            context: context,
+                            builder: (ctx) => AlertDialog(
+                              backgroundColor: const Color(0xFF1A1A2E),
+                              shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(16)),
+                              title: Text('Buy ${propertyData.name}?', style: const TextStyle(color: Colors.white)),
+                              content: Column(
+                                mainAxisSize: MainAxisSize.min,
+                                crossAxisAlignment: CrossAxisAlignment.start,
+                                children: [
+                                  Text('Price: ₹${propertyData.price}', style: const TextStyle(color: Colors.white70, fontSize: 16)),
+                                  const SizedBox(height: 4),
+                                  Text('Balance after: ₹${myPlayer.balance - (propertyData.price ?? 0)}', style: TextStyle(color: (myPlayer.balance - (propertyData.price ?? 0)) > 100 ? Colors.greenAccent : Colors.orangeAccent, fontSize: 16, fontWeight: FontWeight.bold)),
+                                ],
+                              ),
+                              actions: [
+                                TextButton(onPressed: () => Navigator.pop(ctx, false), child: const Text('Cancel', style: TextStyle(color: Colors.white54))),
+                                ElevatedButton(
+                                  style: ElevatedButton.styleFrom(backgroundColor: Colors.green),
+                                  onPressed: () => Navigator.pop(ctx, true),
+                                  child: const Text('Buy'),
+                                ),
+                              ],
+                            ),
+                          );
+                          if (confirmed == true) {
+                            ref.read(networkProvider.notifier).buyProperty();
+                            ref.read(networkProvider.notifier).endTurn();
+                          }
                         }
                       : null,
                 );

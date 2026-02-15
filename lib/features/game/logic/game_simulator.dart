@@ -109,7 +109,7 @@ class GameSimulator {
       if (currentState.phase != GamePhase.ended && currentState.players.any((p) => p.id == currentPlayerId)) {
         final pos = postMovePlayer.position;
         final property = monopolyBoard.firstWhere((s) => s.index == pos);
-        final isBuyable = ['Property', 'Railroad', 'Utility'].contains(property.type);
+        final isBuyable = property.isBuyable;
         final isUnowned = !currentState.propertyOwners.containsKey(pos);
         
         if (isBuyable && isUnowned && postMovePlayer.balance >= (property.price ?? 0)) {

@@ -240,7 +240,7 @@ class _MonopolyBoardWidgetState extends State<MonopolyBoardWidget>
 
     final data = monopolyBoard.firstWhere(
       (e) => e.index == index,
-      orElse: () => BoardSpaceData(index: index, name: "?", type: "Unknown"),
+      orElse: () => BoardSpaceData(index: index, name: "?", type: BoardSpaceType.corner),
     );
 
     // Ownership Visuals
@@ -277,7 +277,7 @@ class _MonopolyBoardWidgetState extends State<MonopolyBoardWidget>
     bool isOwned,
     Color? ownerColor,
   ) {
-    final isCorner = data.type == 'Corner';
+    final isCorner = data.type == BoardSpaceType.corner;
     final hasColor = data.colorHex != null;
     final propertyColor = hasColor 
         ? Color(int.parse(data.colorHex!.replaceFirst('#', '0xff')))
@@ -485,13 +485,13 @@ class _MonopolyBoardWidgetState extends State<MonopolyBoardWidget>
               ),
             ),
           ],
-          if (data.type == 'Railroad')
+          if (data.type == BoardSpaceType.railroad)
             Icon(Icons.train, size: unit * 0.1, color: Colors.black54),
-          if (data.type == 'Utility')
+          if (data.type == BoardSpaceType.utility)
             Icon(Icons.lightbulb, size: unit * 0.1, color: Colors.amber),
-          if (data.type == 'Chance')
+          if (data.type == BoardSpaceType.chance)
             Icon(Icons.help_outline, size: unit * 0.1, color: Colors.red),
-          if (data.type == 'CommunityChest')
+          if (data.type == BoardSpaceType.communityChest)
             Icon(Icons.inventory_2, size: unit * 0.1, color: Colors.blue),
         ],
       ),
@@ -702,47 +702,70 @@ class _AnimatedPawnState extends State<_AnimatedPawn> with SingleTickerProviderS
           child: child!,
         );
       },
-      child: Container(
-        width: tokenSize,
-        height: tokenSize,
-        decoration: BoxDecoration(
-          gradient: LinearGradient(
-            colors: [color.withOpacity(0.9), color],
-            begin: Alignment.topLeft,
-            end: Alignment.bottomRight,
-          ),
-          shape: BoxShape.circle,
-          border: Border.all(color: Colors.white, width: 2),
-          boxShadow: [
-            BoxShadow(
-              color: color.withOpacity(0.6),
-              blurRadius: 10,
-              spreadRadius: 2,
-            ),
-            BoxShadow(
-              color: Colors.black.withOpacity(0.3),
-              blurRadius: 4,
-              offset: const Offset(0, 2),
-            ),
-          ],
-        ),
-        child: Center(
-          child: Text(
-            widget.player.name.isNotEmpty ? widget.player.name[0].toUpperCase() : '?',
-            style: TextStyle(
-              fontSize: tokenSize * 0.45,
-              fontWeight: FontWeight.w800,
-              color: Colors.white,
-              shadows: [
-                Shadow(
-                  color: Colors.black.withOpacity(0.5),
-                  blurRadius: 2,
-                  offset: const Offset(1, 1),
+      child: Stack(
+        children: [
+          Container(
+            width: tokenSize,
+            height: tokenSize,
+            decoration: BoxDecoration(
+              gradient: LinearGradient(
+                colors: widget.player.isJailed 
+                    ? [Colors.grey.shade600, Colors.grey.shade800] // Greyed out when jailed
+                    : [color.withOpacity(0.9), color],
+                begin: Alignment.topLeft,
+                end: Alignment.bottomRight,
+              ),
+              shape: BoxShape.circle,
+              border: Border.all(
+                color: widget.player.isJailed ? Colors.orange : Colors.white, 
+                width: 2,
+              ),
+              boxShadow: [
+                BoxShadow(
+                  color: (widget.player.isJailed ? Colors.orange : color).withOpacity(0.6),
+                  blurRadius: 10,
+                  spreadRadius: 2,
+                ),
+                BoxShadow(
+                  color: Colors.black.withOpacity(0.3),
+                  blurRadius: 4,
+                  offset: const Offset(0, 2),
                 ),
               ],
             ),
+            child: Center(
+              child: Text(
+                widget.player.name.isNotEmpty ? widget.player.name[0].toUpperCase() : '?',
+                style: TextStyle(
+                  fontSize: tokenSize * 0.45,
+                  fontWeight: FontWeight.w800,
+                  color: Colors.white,
+                  shadows: [
+                    Shadow(
+                      color: Colors.black.withOpacity(0.5),
+                      blurRadius: 2,
+                      offset: const Offset(1, 1),
+                    ),
+                  ],
+                ),
+              ),
+            ),
           ),
-        ),
+          // #11: Jail lock icon overlay
+          if (widget.player.isJailed)
+            Positioned(
+              right: 0,
+              bottom: 0,
+              child: Container(
+                padding: const EdgeInsets.all(1),
+                decoration: const BoxDecoration(
+                  color: Colors.orange,
+                  shape: BoxShape.circle,
+                ),
+                child: Icon(Icons.lock, size: tokenSize * 0.3, color: Colors.white),
+              ),
+            ),
+        ],
       ),
     );
   }

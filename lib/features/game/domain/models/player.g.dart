@@ -9,10 +9,12 @@ part of 'player.dart';
 Player _$PlayerFromJson(Map<String, dynamic> json) => Player(
   id: json['id'] as String,
   name: json['name'] as String,
-  balance: (json['balance'] as num?)?.toInt() ?? 1500,
+  balance: (json['balance'] as num?)?.toInt() ?? 1000,
   position: (json['position'] as num?)?.toInt() ?? 0,
   colorHex: json['colorHex'] as String? ?? "#FF0000",
   isJailed: json['isJailed'] as bool? ?? false,
+  jailTurns: (json['jailTurns'] as num?)?.toInt() ?? 0,
+  hasGetOutOfJailFreeCard: json['hasGetOutOfJailFreeCard'] as bool? ?? false,
 );
 
 Map<String, dynamic> _$PlayerToJson(Player instance) => <String, dynamic>{
@@ -22,4 +24,6 @@ Map<String, dynamic> _$PlayerToJson(Player instance) => <String, dynamic>{
   'position': instance.position,
   'colorHex': instance.colorHex,
   'isJailed': instance.isJailed,
+  'jailTurns': instance.jailTurns,
+  'hasGetOutOfJailFreeCard': instance.hasGetOutOfJailFreeCard,
 };

@@ -11,6 +11,8 @@ class Player extends Equatable {
   final int position;
   final String colorHex;
   final bool isJailed;
+  final int jailTurns; // #9: Track turns spent in jail (max 3)
+  final bool hasGetOutOfJailFreeCard; // #7c: Get Out of Jail Free card
 
   const Player({
     required this.id,
@@ -19,6 +21,8 @@ class Player extends Equatable {
     this.position = 0,
     this.colorHex = "#FF0000",
     this.isJailed = false,
+    this.jailTurns = 0,
+    this.hasGetOutOfJailFreeCard = false,
   });
 
   Player copyWith({
@@ -27,6 +31,8 @@ class Player extends Equatable {
     int? position,
     String? colorHex,
     bool? isJailed,
+    int? jailTurns,
+    bool? hasGetOutOfJailFreeCard,
   }) {
     return Player(
       id: id,
@@ -35,6 +41,8 @@ class Player extends Equatable {
       position: position ?? this.position,
       colorHex: colorHex ?? this.colorHex,
       isJailed: isJailed ?? this.isJailed,
+      jailTurns: jailTurns ?? this.jailTurns,
+      hasGetOutOfJailFreeCard: hasGetOutOfJailFreeCard ?? this.hasGetOutOfJailFreeCard,
     );
   }
 
@@ -42,5 +50,5 @@ class Player extends Equatable {
   Map<String, dynamic> toJson() => _$PlayerToJson(this);
 
   @override
-  List<Object> get props => [id, name, balance, position, colorHex, isJailed];
+  List<Object> get props => [id, name, balance, position, colorHex, isJailed, jailTurns, hasGetOutOfJailFreeCard];
 }
